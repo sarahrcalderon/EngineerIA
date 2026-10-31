@@ -2,7 +2,7 @@
 
 Fundação técnica de um assistente de atendimento para a loja fictícia Empório da Música, de Campo Grande/MS, no contexto do desafio de AI Engineer da Artefact.
 
-A Fase 1 entrega uma API de saúde e uma interface que verifica sua disponibilidade. A Fase 2 acrescenta importação local de CSVs, persistência SQLite e serviços internos de catálogo e pedidos. A Fase 3 acrescenta extração local do PDF, segmentação e recuperação lexical de evidências. Não há chat, agente ou exposição dos dados operacionais e documentais por HTTP.
+A Fase 1 entrega uma API de saúde e uma interface que verifica sua disponibilidade. A Fase 2 acrescenta importação local de CSVs, persistência SQLite e serviços internos de catálogo e pedidos. A Fase 3 acrescenta extração local do PDF, segmentação e recuperação lexical de evidências. A Fase 4 implementa um agente interno com adaptador Ollama, ferramentas de leitura e respostas extrativas verificáveis por CLI. Não há chat visual, autenticação ou exposição dos dados por HTTP.
 
 ## Tecnologias e decisões
 
@@ -14,6 +14,7 @@ A Fase 1 entrega uma API de saúde e uma interface que verifica sua disponibilid
 - `pydantic-settings`: configuração tipada por variáveis de ambiente.
 - `sqlite3`, `csv` e `decimal` da biblioteca padrão: persistência, importação e conversões monetárias exatas, sem novas dependências.
 - `pypdf` (BSD-3-Clause) e SQLite FTS5: extração e busca documental local. `pypdf` é a única dependência adicionada na Fase 3.
+- `httpx`: comunicação assíncrona com Ollama. A biblioteca, já utilizada nos testes, passa a ser dependência de execução na Fase 4; não há SDK de agente ou nova versão de pacote no lock.
 
 Todas as ferramentas necessárias à execução local são gratuitas. Não é necessário Docker nem provedor de IA. As versões efetivamente resolvidas estão em `frontend/package-lock.json` e `backend/requirements-dev.lock`.
 
@@ -28,6 +29,7 @@ backend/
     infraestrutura/      # CSV, importação, esquema, conexões e repositórios
     importar.py          # comando local de importação
     indexar_politicas.py  # comando local de indexação documental
+    conversar.py         # CLI do agente, sem histórico persistido
     configuracao.py      # ambiente e CORS
     principal.py         # fábrica da aplicação e erros
   testes/                # regressão HTTP e dados operacionais sintéticos
@@ -44,9 +46,11 @@ docs/
   arquitetura/visao-geral.md
   arquitetura/dados-operacionais.md
   arquitetura/recuperacao-documental.md
+  arquitetura/agente-local.md
   decisoes/0001-arquitetura-inicial.md
   decisoes/0002-persistencia-operacional.md
   decisoes/0003-recuperacao-documental.md
+  decisoes/0004-agente-local.md
 data/                    # confidencial, local, ignorado pelo Git
 .local/                  # banco confidencial e artefatos locais, ignorados
 ```
@@ -170,6 +174,77 @@ evidencias = servico.recuperar_politicas("trocas", limite=5)
 
 A pergunta do exemplo é apenas um termo de busca; o código não pressupõe uma regra comercial ou resposta específica.
 
+## Agente local — Fase 4
+
+O núcleo usa o modelo para solicitar ferramentas nativas e selecionar identificadores de evidências. A aplicação executa somente ferramentas autorizadas, valida os argumentos e monta a resposta a partir de campos cadastrados e citações recuperadas. Texto comercial livre do modelo não é exibido. Essa restrição permite verificar os fatos apresentados sem depender de uma autodeclaração de fundamentação pelo LLM.
+
+As cinco ferramentas são `buscar_produtos`, `consultar_produto`, `consultar_categorias`, `consultar_promocoes` e `buscar_politicas`. Não há ferramentas de clientes, pedidos, SQL, arquivos, comandos ou escrita. Descrições e especificações livres dos produtos não são enviadas ao modelo; a projeção contém nome, categoria, preço e disponibilidade. Promoções mostram o indicador cadastrado, com vigência temporal explicitamente não confirmada. Políticas preservam página, hash e identificador do trecho; BM25 serve apenas à ordenação lexical.
+
+### Instalação e avaliação do Ollama
+
+Instale o aplicativo pelo [site oficial para Windows](https://ollama.com/download/windows), seguindo a [documentação oficial](https://docs.ollama.com/windows). O projeto não instala Ollama nem baixa modelos automaticamente. Além do espaço do aplicativo, é necessário reservar espaço para os pesos e memória adicional para contexto e execução.
+
+O preferencial configurado é `qwen3:4b`: a [distribuição Ollama](https://ollama.com/library/qwen3:4b) tem aproximadamente 2,5 GB e declara suporte a ferramentas; o [modelo oficial Qwen3-4B](https://huggingface.co/Qwen/Qwen3-4B) usa Apache-2.0. O download não equivale ao consumo total de RAM/VRAM. A inspeção desta máquina encontrou aproximadamente 15,4 GiB de RAM total e 3,8 GiB livres, sem homologação de GPU ou inferência. A viabilidade do modelo ainda deve ser medida, liberando memória antes do teste. Uma alternativa menor é [`qwen3:1.7b`](https://ollama.com/library/qwen3:1.7b), de aproximadamente 1,4 GB, também com ferramentas e Apache-2.0; sua qualidade e latência também não foram medidas aqui.
+
+Depois de avaliar espaço e memória, os comandos abaixo baixam pesos públicos, sem dados do projeto. Escolha um dos modelos:
+
+```powershell
+ollama pull qwen3:4b
+# Alternativa menor, se necessária:
+# ollama pull qwen3:1.7b
+```
+
+Para executar somente inferência local, desabilite a nuvem no processo Ollama. Se o aplicativo já estiver usando a porta, encerre-o pela bandeja antes de iniciar outro servidor:
+
+```powershell
+$env:OLLAMA_NO_CLOUD = '1'
+ollama serve
+```
+
+Essa variável deve pertencer ao processo Ollama; defini-la apenas na CLI Python não altera um servidor já iniciado. A opção segue a [documentação de nuvem do Ollama](https://github.com/ollama/ollama/blob/main/docs/cloud.mdx). O adaptador aceita apenas loopback, ignora proxies de ambiente, não segue redirecionamentos e rejeita nomes cloud e metadados que indiquem modelo remoto.
+
+Em outro terminal, verifique a instalação e as capacidades declaradas:
+
+```powershell
+ollama --version
+ollama list
+Invoke-RestMethod http://127.0.0.1:11434/api/version
+Invoke-RestMethod -Method Post -ContentType application/json -Body '{"model":"qwen3:4b"}' http://127.0.0.1:11434/api/show
+```
+
+Antes de enviar mensagens, o adaptador consulta versão e capacidades. Ausência de suporte a ferramentas, resposta inválida, modelo inexistente ou declaração de inferência remota bloqueia a operação. Isso não substitui confiar na instalação local do servidor. Não habilite captura de prompts confidenciais no processo Ollama.
+
+### Execução da CLI
+
+Prepare o banco e o índice com os comandos das Fases 2 e 3. Na raiz, com o Ollama em execução:
+
+```powershell
+$env:EMPORIO_OLLAMA_MODELO = 'qwen3:4b'
+backend/.venv/Scripts/python.exe -X utf8 -m emporio_ia.conversar
+```
+
+Para a alternativa menor, altere `EMPORIO_OLLAMA_MODELO` para `qwen3:1.7b`. Digite perguntas no terminal e `/sair` para encerrar. EOF e Ctrl+C também encerram com segurança. Respostas e referências são locais e confidenciais. A CLI não grava transcrições e não mantém histórico entre perguntas; repita nome/identificador quando necessário. A memória de uma pergunta existe apenas durante seu ciclo de ferramentas.
+
+Assim como os demais comandos locais, a CLI lê variáveis do processo, sem carregar `.env` automaticamente. A API de saúde não inicializa o agente nem exige Ollama. Não existe endpoint de atendimento nesta fase.
+
+### Limites e respostas seguras
+
+As variáveis `EMPORIO_OLLAMA_*` e `EMPORIO_AGENTE_*` estão em `.env.example`. Padrões: temperatura 0, 512 tokens de saída, contexto Ollama de 8192 tokens, quatro etapas, seis chamadas, três resultados por ferramenta, pergunta de até 1000 caracteres, 6000 bytes de contexto serializado, resposta HTTP de até 65536 bytes, timeout de 60 segundos por operação de modelo, dez segundos por ferramenta e 120 segundos por pergunta. Configurações incompatíveis de contexto são recusadas. O orçamento em bytes não é uma medição exata de tokens; o adaptador verifica também o payload efetivamente enviado.
+
+Chamadas idênticas após validação são bloqueadas; chamadas são sequenciais. Timeouts cancelam a espera assíncrona. Leituras SQLite executadas em threads podem terminar em segundo plano, sujeitas ao timeout de conexão existente; não há escrita por essas ferramentas.
+
+O modelo finaliza com um JSON de tipo e identificadores de evidência. Citações desconhecidas, texto livre, campos extras ou ausência das fontes exigidas provocam abstenção. Regras determinísticas conservadoras identificam intenções explícitas de preço, disponibilidade, categorias, promoção e política. Perguntas combinadas reconhecidas exigem todas as fontes correspondentes; essas heurísticas não constituem compreensão semântica completa. O usuário pode receber pedido de esclarecimento, indicação de fora do escopo, ausência de evidência ou mensagem de limite/indisponibilidade.
+
+Nenhuma política é parafraseada livremente: a saída documental é uma citação com referência. A qualidade de seleção de ferramentas ainda depende do modelo; a busca documental continua lexical e pode não recuperar informação existente. Não confunda promoção cadastrada ou indicador ativo com comprovação de vigência atual.
+
+### Testes do agente
+
+```powershell
+backend/.venv/Scripts/python.exe -m pytest backend/testes/agente
+```
+
+Os testes usam SQLite e documentos fictícios, LLM simulado e transporte HTTP simulado. Não exigem Ollama e não leem dados privados. Na entrega, o Ollama não foi localizado no PATH nem no diretório padrão e sua API não respondeu. Portanto não há aprovação de inferência real, versão instalada ou latência. Consulte [arquitetura do agente](docs/arquitetura/agente-local.md), [ADR 0004](docs/decisoes/0004-agente-local.md) e [relatório da Fase 4](docs/relatorios/fase4.md).
+
 ## Importação local — Fase 2
 
 Os seis CSVs devem estar em `data/`. São aceitos nomes canônicos, como `products.csv`, e o sufixo ` - products.csv` presente nos arquivos fornecidos. Não renomeie os originais. Duas fontes candidatas para o mesmo conjunto causam erro, sem escolher uma arbitrariamente. O PDF não é aberto.
@@ -249,13 +324,13 @@ Antes de qualquer commit, examine `git status --short`, `git ls-files -- data` e
 
 ## Limitações e próximas etapas
 
-O indicador informa a disponibilidade da API, não a de um agente, banco ou índice documental. Persistência e consultas são locais e internas; as funcionalidades de atendimento da página continuam marcadas como futuras. Há recuperação lexical de evidências, sem geração de respostas. Não há autenticação, OCR, LLM, Ollama, embeddings, Function Calling, chat ou deploy.
+O indicador informa a disponibilidade da API, não a do modelo, banco ou índice documental. Persistência e atendimento são locais e internos; as funcionalidades visuais de atendimento continuam futuras. O núcleo do agente e o adaptador Ollama existem, mas a inferência real ainda não foi homologada nesta máquina. Não há autenticação, OCR, embeddings, chat visual, atendimento público ou deploy.
 
-A próxima fase poderá integrar Ollama e orquestração controlada, conforme a capacidade do computador. O texto documental deverá ser tratado como fonte não confiável de dados, sem autoridade para dar instruções ao futuro agente. O SQLite não oferece autorização por cliente: controles de identidade e de acesso devem anteceder qualquer exposição dos serviços. Não existem preços históricos por item na origem; o total do pedido é preservado sem recalculá-lo com preços atuais.
+A próxima fase poderá preparar a interface de chat e sua integração controlada. A homologação do modelo local deve anteceder alegações de funcionamento de ponta a ponta. O texto documental permanece dado não confiável, sem autoridade para instruir o agente. O SQLite não oferece autorização por cliente: controles de identidade, acesso, sessão e filtragem devem anteceder qualquer exposição. Não existem preços históricos por item na origem; o total do pedido é preservado sem recalculá-lo com preços atuais.
 
 ## Transparência e licença
 
-A implementação das Fases 1, 2 e 3 contou com assistência de código do OpenAI Codex. A revisão e a validação dos requisitos do desafio permanecem sob responsabilidade da pessoa candidata.
+A implementação das Fases 1, 2, 3 e 4 contou com assistência de código do OpenAI Codex. A revisão e a validação dos requisitos do desafio permanecem sob responsabilidade da pessoa candidata.
 
 Nenhuma licença de distribuição foi atribuída sem decisão da titular do projeto. Os dados privados fornecidos para o desafio não são licenciados por este repositório.
 
