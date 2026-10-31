@@ -2,7 +2,7 @@
 
 Fundação técnica de um assistente de atendimento para a loja fictícia Empório da Música, de Campo Grande/MS, no contexto do desafio de AI Engineer da Artefact.
 
-A Fase 1 entrega uma API de saúde e uma interface que verifica sua disponibilidade. A Fase 2 acrescenta importação local de CSVs, persistência SQLite e serviços internos de catálogo e pedidos. A Fase 3 acrescenta extração local do PDF, segmentação e recuperação lexical de evidências. A Fase 4 implementa um agente interno com adaptador Ollama, ferramentas de leitura e respostas extrativas verificáveis por CLI. Não há chat visual, autenticação ou exposição dos dados por HTTP.
+A Fase 1 entrega a fundação web. As Fases 2 e 3 acrescentam SQLite e recuperação de políticas; a Fase 4 implementa o agente local. A Fase 5 acrescenta chat responsivo com temas claro/escuro e integração FastAPI limitada a evidências explicitamente autorizadas. Não há autenticação nem acesso web a clientes ou pedidos. A homologação real do agente está parcial: o atendimento ainda não está pronto para uso real.
 
 ## Tecnologias e decisões
 
@@ -316,7 +316,7 @@ Formatação: `backend/.venv/Scripts/ruff.exe format backend` e `npm.cmd run for
 
 ## Confidencialidade
 
-Os arquivos operacionais são fornecidos separadamente e devem permanecer exclusivamente em `data/`, sem versionamento. Apenas o importador local lê os CSVs e o indexador local lê o PDF; a API e os testes não leem os dados reais. Texto extraído, seções e índice também são confidenciais e permanecem em `.local/`. Não copie dados para testes, documentação, logs ou backups versionados. `.env`, `.local/`, bancos, journals, arquivos WAL/SHM e backups com extensões previstas também são ignorados. Mantenha quaisquer backups dentro de `.local/` ou em armazenamento privado fora do repositório.
+Os arquivos operacionais são fornecidos separadamente e devem permanecer exclusivamente em `data/`, sem versionamento. Apenas o importador local lê os CSVs e o indexador local lê o PDF; os testes usam fontes sintéticas. A API consulta bancos derivados em modo de leitura e filtra evidências por aprovação explícita antes de enviá-las ao modelo ou visitante. Texto extraído, seções e índice também são confidenciais e permanecem em `.local/`. Não copie dados para testes, documentação, logs ou backups versionados. `.env`, `.local/`, bancos, journals, arquivos WAL/SHM e backups com extensões previstas também são ignorados. Mantenha quaisquer backups dentro de `.local/` ou em armazenamento privado fora do repositório.
 
 O SQLite contém dados pessoais e comerciais: não o compartilhe. Ele não é criptografado; a proteção em repouso depende das permissões da conta e do volume local. O `.gitignore` previne inclusão acidental no Git, mas não substitui controle de acesso nem impede adição forçada. Leituras usam `mode=ro` e `query_only`; todas as conexões ativam chaves estrangeiras. Não há logs de registros, SQL com valores de usuários ou respostas HTTP operacionais.
 
@@ -324,13 +324,13 @@ Antes de qualquer commit, examine `git status --short`, `git ls-files -- data` e
 
 ## Limitações e próximas etapas
 
-O indicador informa a disponibilidade da API, não a do modelo, banco ou índice documental. Persistência e atendimento são locais e internos; as funcionalidades visuais de atendimento continuam futuras. O núcleo do agente e o adaptador Ollama existem, mas a inferência real ainda não foi homologada nesta máquina. Não há autenticação, OCR, embeddings, chat visual, atendimento público ou deploy.
+Os indicadores separam API acessível, modelo acessível e homologação pendente. Metadados do modelo não comprovam inferência correta. Os ensaios reais com Ollama apresentaram consultas bem-sucedidas e falhas por limite/protocolo; consulte o [relatório da Fase 5](docs/relatorios/fase5.md). Não há autenticação, OCR, embeddings, atendimento pela internet ou deploy.
 
-A próxima fase poderá preparar a interface de chat e sua integração controlada. A homologação do modelo local deve anteceder alegações de funcionamento de ponta a ponta. O texto documental permanece dado não confiável, sem autoridade para instruir o agente. O SQLite não oferece autorização por cliente: controles de identidade, acesso, sessão e filtragem devem anteceder qualquer exposição. Não existem preços históricos por item na origem; o total do pedido é preservado sem recalculá-lo com preços atuais.
+A próxima fase deve estabilizar e homologar o modelo local antes da demonstração final. O texto documental permanece dado não confiável, sem autoridade para instruir o agente. O SQLite não oferece autorização por cliente: controles de identidade, acesso e sessão devem anteceder qualquer exposição de pedidos. Não existem preços históricos por item na origem; o total do pedido é preservado sem recalculá-lo com preços atuais.
 
 ## Transparência e licença
 
-A implementação das Fases 1, 2, 3 e 4 contou com assistência de código do OpenAI Codex. A revisão e a validação dos requisitos do desafio permanecem sob responsabilidade da pessoa candidata.
+A implementação das Fases 1 a 5 contou com assistência de código do OpenAI Codex. A revisão e a validação dos requisitos do desafio permanecem sob responsabilidade da pessoa candidata.
 
 Nenhuma licença de distribuição foi atribuída sem decisão da titular do projeto. Os dados privados fornecidos para o desafio não são licenciados por este repositório.
 
@@ -342,4 +342,24 @@ A Fase 2 inclui testes sintéticos para importação, cabeçalhos, tipos, moeda,
 
 A Fase 3 acrescenta PDFs sintéticos gerados nos testes, extração, segmentação com origem reconstruível, indexação, rollback, idempotência, alteração de documento, ranking, ausência de evidência, segurança e CLI. Consulte o [relatório da Fase 3](docs/relatorios/fase3.md). Para executar somente os testes documentais: `backend/.venv/Scripts/python.exe -m pytest backend/testes/documentos`.
 
-Não foi realizada inspeção visual em navegador nesta sessão. A auditoria npm da Fase 1 apontava 12 alertas moderados na cadeia de desenvolvimento do ESLint, ligados a `minimatch`; as dependências frontend não foram alteradas nem novamente auditadas na Fase 2. O pytest continua emitindo um aviso de depreciação do transporte `httpx` no TestClient do Starlette; os testes passam.
+Na Fase 5 foi realizada inspeção em Edge headless nos tamanhos desktop e móvel, incluindo temas e conversa real com bloqueio de dados pessoais. A auditoria npm da Fase 1 apontava 12 alertas moderados na cadeia de desenvolvimento do ESLint, ligados a `minimatch`; as dependências não foram alteradas nem novamente auditadas nesta fase. O pytest continua emitindo um aviso de depreciação do transporte `httpx` no TestClient do Starlette; os testes passam.
+
+## Chat local — Fase 5
+
+A interface usa um painel clássico de atendimento: saudação em balão, mensagens da loja à esquerda e do cliente à direita, cabeçalho fixo na estrutura do painel e campo expansível no rodapé. As sugestões são discretas e aparecem antes do primeiro envio. Veja o [relatório da refatoração visual](docs/relatorios/fase5-chat-classico.md).
+
+Com o ambiente Python e as dependências existentes preparados, inicie o backend na raiz:
+
+```powershell
+backend/.venv/Scripts/python.exe -m uvicorn emporio_ia.principal:aplicacao --reload --host 127.0.0.1 --port 8000 --no-access-log
+```
+
+Em outro terminal, use `cd frontend` e `npm.cmd run dev`; abra `http://127.0.0.1:5173`. Para um servidor Ollama instalado, `ollama serve` inicia o serviço; se o aplicativo já o mantém ativo, não inicie uma segunda instância. `ollama pull qwen3:4b` baixa o modelo explicitamente (aproximadamente 2,5 GB, requer rede). Nesta fase ele já estava instalado e não foi baixado pelo agente. Use exclusivamente execução local, sem modelos cloud.
+
+As variáveis backend estão em [.env.example](.env.example), carregadas somente quando passadas com `--env-file .env` ao Uvicorn; CLIs usam ambiente do processo. No frontend, copie `frontend/.env.example` para `frontend/.env.local` se precisar alterar `VITE_API_URL` ou `VITE_ATENDIMENTO_TIMEOUT_MS`. Somente URLs HTTP de loopback são aceitas. Nunca use `--host 0.0.0.0` para este atendimento anônimo.
+
+Antes de publicar informações, revise localmente as evidências comerciais e autorize somente as aprovadas em `.local/publicacao.json`. O [exemplo vazio](docs/exemplos/publicacao-visitante.example.json) nega toda publicação. A CLI `python -m emporio_ia.revisar_publicacao consultar_categorias '{}'` gera somente referências/fingerprints para revisão, sem gravar nem autorizar. Consulte o [procedimento e arquitetura](docs/arquitetura/atendimento-web.md) e a [ADR 0005](docs/decisoes/0005-atendimento-local-controlado.md). Nenhum dado real foi autorizado automaticamente nesta implementação.
+
+Digite uma pergunta ou escolha uma sugestão. Enter envia e Shift+Enter quebra a linha. Aguarde, cancele ou tente novamente conforme o estado apresentado. Nova conversa limpa o histórico; recarregar também o descarta. As perguntas são independentes e não enviam mensagens anteriores ao modelo. Apenas o tema é persistido. O navegador não acessa Ollama diretamente.
+
+Os padrões são: 1.000 caracteres, corpo de 8 KiB, 20 mensagens/minuto por IP local, uma consulta simultânea por processo, 120 segundos totais no backend e 130 segundos no frontend. Mantenha um único worker. Não há streaming, uploads ou consulta a pedidos. Aprovação de evidências e homologação real continuam requisitos anteriores ao uso comercial. Testes e verificações completos constam no relatório da fase.

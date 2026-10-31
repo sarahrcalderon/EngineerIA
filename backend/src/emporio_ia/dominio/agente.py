@@ -55,3 +55,4 @@ class RespostaAgente:
     estado: str
     texto: str
     referencias: tuple[str, ...] = ()
+    evidencias: tuple[Evidencia, ...] = ()

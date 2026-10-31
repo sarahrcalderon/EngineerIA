@@ -70,7 +70,11 @@ def test_api_continua_sem_rotas_operacionais(
         diretorio_dados=diretorio_csv, caminho_banco=banco_importado.caminho
     )
     with TestClient(criar_aplicacao(configuracao)) as cliente:
-        assert set(cliente.get("/openapi.json").json()["paths"]) == {"/api/saude"}
+        assert set(cliente.get("/openapi.json").json()["paths"]) == {
+            "/api/saude",
+            "/api/atendimento/mensagens",
+            "/api/atendimento/disponibilidade",
+        }
         for caminho in (
             "/api/clientes",
             "/api/pedidos/701",

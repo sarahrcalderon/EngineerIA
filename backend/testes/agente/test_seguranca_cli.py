@@ -122,7 +122,11 @@ def test_terminal_remove_escape():
 
 def test_api_sem_atendimento_publico():
     with TestClient(criar_aplicacao()) as cliente:
-        assert set(cliente.get("/openapi.json").json()["paths"]) == {"/api/saude"}
+        assert set(cliente.get("/openapi.json").json()["paths"]) == {
+            "/api/saude",
+            "/api/atendimento/mensagens",
+            "/api/atendimento/disponibilidade",
+        }
         for caminho in (
             "/api/chat",
             "/api/atendimento",

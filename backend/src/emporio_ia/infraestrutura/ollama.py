@@ -3,6 +3,7 @@ import json
 
 import httpx
 
+from emporio_ia.aplicacao.fundamentacao import FinalizacaoModelo
 from emporio_ia.configuracao import ConfiguracaoAplicacao
 from emporio_ia.dominio.agente import (
     ChamadaFerramenta,
@@ -20,6 +21,34 @@ class AdaptadorOllama:
     ) -> None:
         self.configuracao = configuracao
         self.transporte = transporte
+
+    async def _verificar_modelo(self, cliente: httpx.AsyncClient) -> list[str]:
+        versao = await self._requisitar(cliente, "GET", "/api/version")
+        if not isinstance(versao.get("version"), str):
+            raise ErroModelo("versao_invalida")
+        detalhes = await self._requisitar(
+            cliente, "POST", "/api/show", {"model": self.configuracao.ollama_modelo}
+        )
+        if detalhes.get("remote_host") or detalhes.get("remote_model"):
+            raise ErroModelo("modelo_remoto_bloqueado")
+        capacidades = detalhes.get("capabilities")
+        if not isinstance(capacidades, list) or "tools" not in capacidades:
+            raise ErroModelo("ferramentas_nao_suportadas")
+        return capacidades
+
+    async def verificar_disponibilidade(self) -> bool:
+        try:
+            async with httpx.AsyncClient(
+                base_url=self.configuracao.ollama_url,
+                timeout=self.configuracao.atendimento_disponibilidade_timeout,
+                trust_env=False,
+                follow_redirects=False,
+                transport=self.transporte,
+            ) as cliente:
+                await self._verificar_modelo(cliente)
+            return True
+        except ErroModelo:
+            return False
 
     async def _requisitar(
         self,
@@ -62,23 +91,18 @@ class AdaptadorOllama:
             follow_redirects=False,
             transport=self.transporte,
         ) as cliente:
-            versao = await self._requisitar(cliente, "GET", "/api/version")
-            if not isinstance(versao.get("version"), str):
-                raise ErroModelo("versao_invalida")
-            detalhes = await self._requisitar(
-                cliente, "POST", "/api/show", {"model": self.configuracao.ollama_modelo}
-            )
-            if detalhes.get("remote_host") or detalhes.get("remote_model"):
-                raise ErroModelo("modelo_remoto_bloqueado")
-            capacidades = detalhes.get("capabilities")
-            if not isinstance(capacidades, list) or "tools" not in capacidades:
-                raise ErroModelo("ferramentas_nao_suportadas")
+            capacidades = await self._verificar_modelo(cliente)
             historico = []
             for mensagem in mensagens:
                 item: dict[str, object] = {
                     "role": mensagem.papel,
                     "content": mensagem.conteudo,
                 }
+                if (
+                    mensagem.papel == "system"
+                    and self.configuracao.ollama_modelo.startswith("qwen3:")
+                ):
+                    item["content"] = mensagem.conteudo + "\n/no_think"
                 if mensagem.chamadas:
                     item["tool_calls"] = [
                         {
@@ -105,6 +129,27 @@ class AdaptadorOllama:
             }
             if "thinking" in capacidades:
                 dados["think"] = False
+            if not ferramentas:
+                formato = FinalizacaoModelo.model_json_schema()
+                propriedades = formato["properties"]
+                propriedades["tipo"] = {
+                    "type": "string",
+                    "enum": [
+                        "responder",
+                        "sem_evidencias",
+                        "esclarecer",
+                        "fora_escopo",
+                    ],
+                }
+                identificadores = []
+                for mensagem in mensagens:
+                    if mensagem.papel == "tool":
+                        for evidencia in json.loads(mensagem.conteudo):
+                            identificadores.append(evidencia["identificador"])
+                propriedades["evidencias"]["maxItems"] = len(identificadores)
+                if identificadores:
+                    propriedades["evidencias"]["items"]["enum"] = identificadores
+                dados["format"] = formato
             if (
                 len(json.dumps(dados, ensure_ascii=False).encode())
                 > self.configuracao.agente_contexto_bytes

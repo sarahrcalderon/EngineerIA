@@ -1,5 +1,7 @@
 # Visão geral da arquitetura
 
+Atualização da Fase 5: o [atendimento web local](atendimento-web.md) acrescenta interface de chat, autorização explícita de evidências e HTTP sob limites. As restrições históricas da Fase 4 abaixo descrevem o ponto de partida; agora existe chat visual. Não há exposição de clientes/pedidos nem autenticação. A homologação real permanece parcial, conforme o relatório da Fase 5.
+
 ## Objetivos
 
 Estabelecer uma fundação pequena, tipada, testável e local. Separar apresentação, transporte HTTP e configuração sem criar classes ou camadas sem comportamento concreto.

@@ -11,7 +11,13 @@ from emporio_ia.infraestrutura.ollama import AdaptadorOllama
 
 
 def executar_chat(
-    retorno=None, *, status=200, capacidades=None, erro=None, configuracao=None
+    retorno=None,
+    *,
+    status=200,
+    capacidades=None,
+    erro=None,
+    configuracao=None,
+    mensagens=None,
 ):
     recebidas = []
 
@@ -48,7 +54,7 @@ def executar_chat(
         configuracao or ConfiguracaoAplicacao(), httpx.MockTransport(tratar)
     )
     return asyncio.run(
-        adaptador.responder((Mensagem("user", "Pergunta fictícia"),), [])
+        adaptador.responder(mensagens or (Mensagem("user", "Pergunta fictícia"),), [])
     ), recebidas
 
 
@@ -60,6 +66,38 @@ def test_api_protocolo_local_sem_streaming():
     assert dados["options"]["temperature"] == 0
     assert dados["model"] == "qwen3:4b"
     assert all(requisicao.url.host == "127.0.0.1" for requisicao in recebidas)
+
+
+def test_finalizacao_restringe_escolha_as_evidencias_recebidas():
+    _, recebidas = executar_chat(
+        mensagens=(
+            Mensagem("system", "Instrução fictícia"),
+            Mensagem(
+                "tool", json.dumps([{"identificador": "E1"}, {"identificador": "E2"}])
+            ),
+        )
+    )
+    dados = json.loads(recebidas[-1].content)
+    assert dados["messages"][0]["content"].endswith("/no_think")
+    evidencias = dados["format"]["properties"]["evidencias"]
+    assert evidencias["items"]["enum"] == ["E1", "E2"]
+    assert evidencias["maxItems"] == 2
+    assert "resposta" not in dados["format"]["properties"]
+
+
+def test_disponibilidade_verifica_metadados_sem_gerar_resposta():
+    recebidas = []
+
+    def tratar(requisicao):
+        recebidas.append(requisicao.url.path)
+        if requisicao.url.path == "/api/version":
+            return httpx.Response(200, json={"version": "0.40.13"})
+        assert requisicao.url.path == "/api/show"
+        return httpx.Response(200, json={"capabilities": ["tools"]})
+
+    adaptador = AdaptadorOllama(ConfiguracaoAplicacao(), httpx.MockTransport(tratar))
+    assert asyncio.run(adaptador.verificar_disponibilidade())
+    assert recebidas == ["/api/version", "/api/show"]
 
 
 def test_interpreta_ferramentas():

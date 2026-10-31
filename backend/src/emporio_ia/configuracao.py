@@ -38,6 +38,12 @@ class ConfiguracaoAplicacao(BaseSettings):
     agente_resposta_bytes: int = Field(default=65536, ge=1024, le=262144)
     agente_timeout_ferramenta: float = Field(default=10, gt=0, le=60)
     agente_timeout_total: float = Field(default=120, gt=0, le=600)
+    caminho_publicacao: Path = RAIZ_PROJETO / ".local" / "publicacao.json"
+    atendimento_requisicoes_minuto: int = Field(default=20, ge=1, le=120)
+    atendimento_concorrencia: int = Field(default=1, ge=1, le=4)
+    atendimento_corpo_bytes: int = Field(default=8192, ge=1024, le=32768)
+    atendimento_leitura_timeout: float = Field(default=10, gt=0, le=30)
+    atendimento_disponibilidade_timeout: float = Field(default=5, gt=0, le=15)
 
     @field_validator("ollama_url")
     @classmethod
@@ -78,12 +84,23 @@ class ConfiguracaoAplicacao(BaseSettings):
         "caminho_banco",
         "caminho_pdf_politicas",
         "caminho_indice_politicas",
+        "caminho_publicacao",
     )
     @classmethod
     def resolver_caminho(cls, caminho: Path) -> Path:
         if not caminho.is_absolute():
             caminho = RAIZ_PROJETO / caminho
         return caminho.resolve()
+
+    @field_validator("caminho_publicacao")
+    @classmethod
+    def validar_local_publicacao(cls, caminho: Path) -> Path:
+        if caminho.suffix.lower() != ".json" or (
+            caminho.is_relative_to(RAIZ_PROJETO)
+            and not caminho.is_relative_to(RAIZ_PROJETO / ".local")
+        ):
+            raise ValueError("A publicação deve usar JSON em armazenamento privado.")
+        return caminho
 
     @field_validator("caminho_banco", "caminho_indice_politicas")
     @classmethod

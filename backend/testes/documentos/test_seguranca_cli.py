@@ -97,7 +97,11 @@ def test_indice_ausente_nao_e_criado_na_busca(tmp_path: Path) -> None:
 
 def test_api_nao_expoe_documentos_ou_indice() -> None:
     with TestClient(criar_aplicacao()) as cliente:
-        assert set(cliente.get("/openapi.json").json()["paths"]) == {"/api/saude"}
+        assert set(cliente.get("/openapi.json").json()["paths"]) == {
+            "/api/saude",
+            "/api/atendimento/mensagens",
+            "/api/atendimento/disponibilidade",
+        }
         for caminho in (
             "/api/politicas",
             "/api/documentos",

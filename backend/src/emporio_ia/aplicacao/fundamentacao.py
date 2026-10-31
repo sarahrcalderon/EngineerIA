@@ -14,6 +14,7 @@ Para preços e políticas juntos, obtenha ambas as fontes. Promoção cadastrada
 comprova vigência. Sem evidência, abstenha-se ou solicite esclarecimento.
 Faça chamadas de ferramentas nativas quando necessário. Ao finalizar, retorne
 somente JSON: {"tipo":"responder","evidencias":["E1"]}.
+Não descreva análise, raciocínio ou planejamento. Solicite a ferramenta diretamente.
 Outros tipos permitidos: "esclarecer", "fora_escopo", "sem_evidencias", com lista vazia.
 Não escreva respostas livres nem altere citações. A aplicação apresenta as evidências.
 BM25 é ordenação lexical, nunca probabilidade ou certeza sobre uma regra.
@@ -90,5 +91,8 @@ def finalizar_resposta(
         for e in selecionadas
     )
     return RespostaAgente(
-        "fundamentada", texto, tuple(e.dado.referencia for e in selecionadas)
+        "fundamentada",
+        texto,
+        tuple(e.dado.referencia for e in selecionadas),
+        evidencias=tuple(selecionadas),
     )

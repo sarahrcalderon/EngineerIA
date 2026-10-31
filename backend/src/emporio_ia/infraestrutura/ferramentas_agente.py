@@ -81,17 +81,37 @@ class FerramentasLeitura:
         self.maximo_resultados = maximo_resultados
 
     def descrever(self) -> list[dict[str, object]]:
-        return [
-            {
-                "type": "function",
-                "function": {
-                    "name": nome,
-                    "description": descricao,
-                    "parameters": esquema.model_json_schema(),
-                },
-            }
-            for nome, (descricao, esquema) in self.DEFINICOES.items()
-        ]
+        descricoes = []
+        for nome, (descricao, esquema) in self.DEFINICOES.items():
+            parametros = esquema.model_json_schema()
+            parametros.pop("title", None)
+            for campo in parametros["properties"].values():
+                campo.pop("title", None)
+            # Parâmetros opcionais podem ser omitidos, sem exigir escolha int/null.
+            if "limite" in parametros["properties"]:
+                parametros["properties"]["limite"] = {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": self.maximo_resultados,
+                    "default": self.maximo_resultados,
+                }
+            if "produto_id" in parametros["properties"]:
+                parametros["properties"]["produto_id"] = {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2**63 - 1,
+                }
+            descricoes.append(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": nome,
+                        "description": descricao,
+                        "parameters": parametros,
+                    },
+                }
+            )
+        return descricoes
 
     def validar(self, chamada: ChamadaFerramenta) -> ChamadaFerramenta:
         if chamada.nome not in self.DEFINICOES:

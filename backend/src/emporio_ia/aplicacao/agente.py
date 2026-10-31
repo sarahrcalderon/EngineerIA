@@ -8,6 +8,7 @@ from emporio_ia.aplicacao.contratos_agente import ContratoFerramentas, ContratoM
 from emporio_ia.aplicacao.fundamentacao import (
     INSTRUCOES_AGENTE,
     finalizar_resposta,
+    fontes_necessarias,
     pergunta_pessoal,
 )
 from emporio_ia.configuracao import ConfiguracaoAplicacao
@@ -135,7 +136,12 @@ class ServicoAgente:
                     "Faça uma pergunta mais específica.",
                 )
             async with asyncio.timeout(self.configuracao.ollama_timeout):
-                turno = await self.modelo.responder(tuple(mensagens), ferramentas)
+                concluir = bool(evidencias) and fontes_necessarias(pergunta).issubset(
+                    {e.dado.fonte for e in evidencias}
+                )
+                turno = await self.modelo.responder(
+                    tuple(mensagens), [] if concluir else ferramentas
+                )
             if not turno.chamadas:
                 return finalizar_resposta(turno.conteudo, pergunta, evidencias)
             if (
