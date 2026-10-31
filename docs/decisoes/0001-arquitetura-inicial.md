@@ -2,6 +2,8 @@
 
 Estado: aceita para a Fase 1.
 
+Evolução: a persistência e as consultas operacionais da Fase 2 estão especificadas na [ADR 0002](0002-persistencia-operacional.md). As decisões abaixo registram o contexto original da Fase 1.
+
 ## Contexto
 
 O desafio exige uma base gratuita e local para um futuro agente de atendimento, mantendo os arquivos privados fora do Git. A primeira fase não deve antecipar o agente nem o processamento dos arquivos.

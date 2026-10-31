@@ -26,8 +26,15 @@ coverage/
 *.sqlite
 *.sqlite3
 *.db
+*.sqlite-*
+*.sqlite3-*
+*.db-*
+*.sqlite*.bak
+*.db.bak
+/.local/
 
 # Logs e temporários
 *.log
 *.tmp
 *.bak
+*.backup

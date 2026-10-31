@@ -2,7 +2,7 @@
 
 Fundação técnica de um assistente de atendimento para a loja fictícia Empório da Música, de Campo Grande/MS, no contexto do desafio de AI Engineer da Artefact.
 
-A Fase 1 entrega uma API de saúde e uma interface que verifica sua disponibilidade. O objetivo é estabelecer configuração, organização, testes e documentação para as próximas etapas. Não há chat, agente, consultas comerciais ou processamento de dados nesta versão.
+A Fase 1 entrega uma API de saúde e uma interface que verifica sua disponibilidade. A Fase 2 acrescenta importação local de CSVs, persistência SQLite e serviços internos de catálogo e pedidos. Não há chat, agente, processamento do PDF ou exposição dos dados operacionais por HTTP.
 
 ## Tecnologias e decisões
 
@@ -12,6 +12,7 @@ A Fase 1 entrega uma API de saúde e uma interface que verifica sua disponibilid
 - pytest, Ruff, Vitest, Testing Library, ESLint e Prettier: verificações automatizadas.
 - `fetch` nativo: comunicação HTTP sem dependência adicional.
 - `pydantic-settings`: configuração tipada por variáveis de ambiente.
+- `sqlite3`, `csv` e `decimal` da biblioteca padrão: persistência, importação e conversões monetárias exatas, sem novas dependências.
 
 Todas as ferramentas necessárias à execução local são gratuitas. Não é necessário Docker nem provedor de IA. As versões efetivamente resolvidas estão em `frontend/package-lock.json` e `backend/requirements-dev.lock`.
 
@@ -21,9 +22,13 @@ Todas as ferramentas necessárias à execução local são gratuitas. Não é ne
 backend/
   src/emporio_ia/
     api/                 # rotas, esquemas e dependências HTTP
+    dominio/             # entidades, filtros, conversões e exceções
+    aplicacao/           # contratos e serviços internos de catálogo/pedidos
+    infraestrutura/      # CSV, importação, esquema, conexões e repositórios
+    importar.py          # comando local de importação
     configuracao.py      # ambiente e CORS
     principal.py         # fábrica da aplicação e erros
-  testes/                # contrato HTTP, configuração e inicialização
+  testes/                # regressão HTTP e dados operacionais sintéticos
   pyproject.toml
 frontend/
   src/
@@ -35,15 +40,19 @@ frontend/
     App.tsx
 docs/
   arquitetura/visao-geral.md
+  arquitetura/dados-operacionais.md
   decisoes/0001-arquitetura-inicial.md
+  decisoes/0002-persistencia-operacional.md
 data/                    # confidencial, local, ignorado pelo Git
+.local/                  # banco confidencial e artefatos locais, ignorados
 ```
 
-A fábrica `criar_aplicacao` recebe configurações e disponibiliza a instância por dependência FastAPI. A interface consulta apenas `GET /api/saude`, com limite de cinco segundos, cancelamento ao desmontar e nova tentativa manual em caso de falha. A resposta é validada também em tempo de execução. Camadas de domínio e infraestrutura serão criadas quando houver regras e integrações concretas.
+A fábrica `criar_aplicacao` recebe configurações e disponibiliza a instância por dependência FastAPI. A interface consulta apenas `GET /api/saude`, com limite de cinco segundos, cancelamento ao desmontar e nova tentativa manual em caso de falha. A resposta é validada também em tempo de execução. Os serviços operacionais dependem de contratos; repositórios SQLite implementam esses contratos. A API não instancia esses serviços nem acessa o banco.
 
 ## Pré-requisitos
 
 - Windows com PowerShell, Python 3.12+ e Node.js 22.12+ (validado com Node 24).
+- SQLite 3.37+ no módulo `sqlite3` do Python, para tabelas `STRICT`.
 - npm e acesso à internet para instalar dependências.
 - Git para inspeção do repositório.
 
@@ -99,13 +108,53 @@ Resposta HTTP 200:
 
 ## Ambiente
 
-| Variável | Local | Uso |
-| --- | --- | --- |
-| `EMPORIO_AMBIENTE` | backend | `desenvolvimento`, `teste` ou `producao` |
-| `EMPORIO_ORIGENS_CORS` | backend | Lista JSON de origens HTTP explícitas |
-| `VITE_API_URL` | frontend | URL base da API; obrigatória para conexão |
+| Variável                  | Local              | Uso                                             |
+| ------------------------- | ------------------ | ----------------------------------------------- |
+| `EMPORIO_AMBIENTE`        | backend            | `desenvolvimento`, `teste` ou `producao`        |
+| `EMPORIO_ORIGENS_CORS`    | backend            | Lista JSON de origens HTTP explícitas           |
+| `EMPORIO_DIRETORIO_DADOS` | backend/importador | Diretório dos CSVs; padrão `data/` da raiz      |
+| `EMPORIO_CAMINHO_BANCO`   | backend/importador | Banco dedicado; padrão `.local/emporio.sqlite3` |
+| `VITE_API_URL`            | frontend           | URL base da API; obrigatória para conexão       |
 
 O Uvicorn recebe `.env` explicitamente por `--env-file`; `python-dotenv`, usado por essa opção, integra o conjunto de dependências de configuração. O Vite lê `frontend/.env.local`. Reinicie os serviços após alterar ambiente. CORS é independente do nome do ambiente: configure as origens adequadas em cada instalação, sem curingas. Credenciais não são permitidas por CORS nesta fase. Variáveis `VITE_*` são públicas e nunca devem conter segredos.
+
+O importador lê o ambiente do processo e as flags abaixo; ele não carrega `.env` automaticamente. Caminhos relativos de dados e banco são ancorados na raiz do projeto, independentemente do diretório atual do terminal. O banco deve terminar em `.sqlite`, `.sqlite3` ou `.db`.
+
+## Importação local — Fase 2
+
+Os seis CSVs devem estar em `data/`. São aceitos nomes canônicos, como `products.csv`, e o sufixo ` - products.csv` presente nos arquivos fornecidos. Não renomeie os originais. Duas fontes candidatas para o mesmo conjunto causam erro, sem escolher uma arbitrariamente. O PDF não é aberto.
+
+Na raiz, após instalar o backend:
+
+```powershell
+backend/.venv/Scripts/python.exe -m emporio_ia.importar
+```
+
+Para substituir os caminhos sem modificar arquivos de configuração:
+
+```powershell
+backend/.venv/Scripts/python.exe -m emporio_ia.importar --diretorio-dados data --banco .local/emporio.sqlite3
+```
+
+Também é possível configurar as variáveis `EMPORIO_DIRETORIO_DADOS` e `EMPORIO_CAMINHO_BANCO` no processo. As flags prevalecem. A execução a partir de outro diretório requer apenas invocar o Python do ambiente virtual pelo caminho absoluto; a localização dos arquivos não depende do terminal.
+
+O comando emite somente estado e contagens por conjunto, sem registros ou caminhos. Falhas retornam código 1 com mensagem sanitizada. Os arquivos são abertos somente para leitura.
+
+Cada execução substitui o snapshot completo das seis tabelas dentro de uma única transação: esquema, limpeza e inserções são confirmados juntos. Erro de validação, duplicata, referência inválida ou interrupção provoca rollback; nenhuma linha inválida é descartada. Reimportar a mesma origem preserva contagens e conteúdo sem duplicação. Alterações manuais no snapshot são substituídas na próxima importação. Use banco dedicado, nunca uma base com dados independentes.
+
+Cabeçalhos devem corresponder exatamente ao contrato, independentemente da ordem. O formato é CSV com vírgula e UTF-8, aceitando BOM. Todos os conjuntos devem conter registros; arquivos vazios ou apenas com cabeçalho são rejeitados para evitar substituição acidental por um snapshot incompleto. Linhas totalmente vazias são ignoradas pelo leitor CSV. `tracking_code`, `estimated_delivery` e `notes` admitem valores vazios, armazenados como `NULL`.
+
+Valores monetários usam `Decimal` e centavos inteiros, sem `float` ou arredondamento silencioso. Aceitam ponto decimal e até duas casas. Percentuais ficam em pontos-base, entre 0 e 10000. Datas exigem `AAAA-MM-DD`. Identificadores, estoque, quantidades e relações são validados. O [contrato dos dados](docs/arquitetura/dados-operacionais.md) detalha as tabelas e limitações.
+
+## Consultas internas
+
+`ServicoCatalogo` oferece busca por identificador ou trecho do nome, categoria, faixa de preço em centavos, estoque e paginação de até 200 produtos. A busca ignora caixa e acentos, tratando `%`, `_` e aspas literalmente. `consultar_preco` retorna `Decimal`; produto inexistente retorna `None`, distinto de estoque zero. A regra conservadora de disponibilidade exige `status = active` e estoque positivo.
+
+Categorias podem ser listadas ou buscadas por identificador. Promoções podem ser filtradas por produto e indicador ativo. **Não há datas de promoção na origem**: `validade_temporal` informa `indisponivel`; não é possível classificar promoções como vigentes ou expiradas. Não há cálculo, combinação ou aplicação de descontos.
+
+`ServicoPedidos` consulta status, itens, rastreamento e entrega estimada apenas para o par pedido/cliente informado pelo chamador interno. A projeção exclui nome, telefone, email, cidade, pagamento e observações. Esse filtro evita mistura de clientes, mas **não é autenticação ou autorização**. O serviço só poderá ser exposto após uma camada confiável validar identidade e permissão. Nesta fase não há nenhuma rota operacional.
+
+Os contratos e a composição local estão exemplificados com dados sintéticos em `backend/testes/conftest.py`. Não registre o retorno de consultas reais.
 
 ## Testes e qualidade
 
@@ -142,19 +191,21 @@ Formatação: `backend/.venv/Scripts/ruff.exe format backend` e `npm.cmd run for
 
 ## Confidencialidade
 
-Os arquivos operacionais são fornecidos separadamente e devem permanecer exclusivamente em `data/`, sem versionamento. A aplicação desta fase não lê essa pasta. Não copie dados para testes, documentação, logs ou backups versionados. `.env` e bancos locais também são ignorados. Os testes usam somente respostas sintéticas de saúde.
+Os arquivos operacionais são fornecidos separadamente e devem permanecer exclusivamente em `data/`, sem versionamento. Apenas o importador local lê os CSVs; a API e os testes não leem os dados reais. Não copie dados para testes, documentação, logs ou backups versionados. `.env`, `.local/`, bancos, journals, arquivos WAL/SHM e backups com extensões previstas também são ignorados. Mantenha quaisquer backups dentro de `.local/` ou em armazenamento privado fora do repositório.
+
+O SQLite contém dados pessoais e comerciais: não o compartilhe. Ele não é criptografado; a proteção em repouso depende das permissões da conta e do volume local. O `.gitignore` previne inclusão acidental no Git, mas não substitui controle de acesso nem impede adição forçada. Leituras usam `mode=ro` e `query_only`; todas as conexões ativam chaves estrangeiras. Não há logs de registros, SQL com valores de usuários ou respostas HTTP operacionais.
 
 Antes de qualquer commit, examine `git status --short`, `git ls-files -- data` e `git diff --cached --name-only`, além de `git check-ignore data/`. O `.gitignore` não protege conteúdo já versionado. Se houver dados no histórico, suspenda publicação e faça diagnóstico; não reescreva histórico sem autorização.
 
 ## Limitações e próximas etapas
 
-O indicador informa a disponibilidade da API, não a de um agente. Não há autenticação, persistência, importação de CSV, extração de PDF, atendimento, promoções ou consulta de pedidos. As funcionalidades apresentadas na página estão explicitamente marcadas como futuras.
+O indicador informa a disponibilidade da API, não a de um agente ou do banco. Persistência e consultas são locais e internas; as funcionalidades de atendimento da página continuam marcadas como futuras. Não há autenticação, extração de PDF, LLM, Ollama, RAG, Function Calling, chat ou deploy.
 
-As próximas fases poderão definir importação local, SQLite, consultas estruturadas, recuperação de políticas e integração local com Ollama, conforme os requisitos de privacidade e a capacidade do computador. Nenhuma dessas dependências está instalada nesta fase. A escolha do modelo e da biblioteca de PDF ainda precisa de validação.
+A próxima fase poderá definir recuperação de políticas, avaliando biblioteca de PDF, licença e referências verificáveis. Integração local com Ollama permanece futura e depende da capacidade do computador. O SQLite não oferece autorização por cliente: controles de identidade e de acesso devem anteceder qualquer exposição dos serviços. Não existem preços históricos por item na origem; o total do pedido é preservado sem recalculá-lo com preços atuais.
 
 ## Transparência e licença
 
-A implementação da Fase 1 contou com assistência de código do OpenAI Codex. A revisão e a validação dos requisitos do desafio permanecem sob responsabilidade da pessoa candidata.
+A implementação das Fases 1 e 2 contou com assistência de código do OpenAI Codex. A revisão e a validação dos requisitos do desafio permanecem sob responsabilidade da pessoa candidata.
 
 Nenhuma licença de distribuição foi atribuída sem decisão da titular do projeto. Os dados privados fornecidos para o desafio não são licenciados por este repositório.
 
@@ -162,4 +213,6 @@ Nenhuma licença de distribuição foi atribuída sem decisão da titular do pro
 
 A configuração segue a documentação oficial de [CORS do FastAPI](https://fastapi.tiangolo.com/tutorial/cors/), [Tailwind com Vite](https://tailwindcss.com/docs/installation/using-vite) e [Vite](https://vite.dev/guide/).
 
-Nesta entrega foram executados oito testes Python e seis testes frontend, incluindo integração com a API real, além de Ruff, TypeScript, ESLint, Prettier e build. Não foi realizada inspeção visual em navegador nesta sessão. A auditoria npm após atualizar as ferramentas eliminou os dois alertas críticos iniciais, mas ainda aponta 12 alertas moderados na cadeia de desenvolvimento do ESLint, ligados a `minimatch`, sem correção automática disponível. Não foram aplicadas substituições forçadas incompatíveis. O pytest também emite um aviso de depreciação do transporte `httpx` no TestClient do Starlette; os testes passam.
+A Fase 2 inclui testes sintéticos para importação, cabeçalhos, tipos, moeda, datas, duplicatas, relacionamentos, rollback após escrita e interrupção, idempotência, consultas, SQL parametrizado, isolamento de pedidos, CLI e ausência de exposição HTTP. Os resultados executados constam no [relatório da Fase 2](docs/relatorios/fase2.md).
+
+Não foi realizada inspeção visual em navegador nesta sessão. A auditoria npm da Fase 1 apontava 12 alertas moderados na cadeia de desenvolvimento do ESLint, ligados a `minimatch`; as dependências frontend não foram alteradas nem novamente auditadas na Fase 2. O pytest continua emitindo um aviso de depreciação do transporte `httpx` no TestClient do Starlette; os testes passam.
