@@ -14,6 +14,7 @@ Estabelecer uma fundação pequena, tipada, testável e local. Separar apresenta
 - Domínio: entidades operacionais, filtros, invariantes de conversão e exceções sem dependências de FastAPI ou SQLite.
 - Aplicação: serviços internos de catálogo e pedidos dependentes de contratos de repositório.
 - Infraestrutura: importador CSV transacional, tabelas SQLite e adaptadores de consulta somente para leitura. SQL permanece fora das rotas.
+- Recuperação documental: contratos próprios de extração/indexação/busca, entidades documentais no domínio e adaptadores locais `pypdf`/FTS5. Não usa os repositórios nem o banco operacional.
 
 ## Fluxo
 
@@ -40,7 +41,9 @@ Consultas estruturadas usam `csv`, `Decimal`, centavos inteiros e SQL parametriz
 
 Ollama será um adaptador local, sujeito à capacidade do computador. A orquestração Python controlará quais ferramentas podem ser chamadas e validará argumentos e resultados. O modelo não terá acesso irrestrito a arquivos ou SQL. Seu uso, modelo e desempenho ainda não foram validados.
 
-A recuperação futura de políticas exigirá extração de PDF com licença adequada, fragmentos e referências verificáveis. Documentos e respostas de ferramentas serão tratados como dados não confiáveis, com controles contra instruções maliciosas. Essas estratégias permanecem propostas, sem implementação nesta fase.
+A Fase 3 implementa extração local por página com `pypdf` (BSD-3-Clause), fragmentos com offsets e hashes, e FTS5 em banco separado. A aplicação depende de contratos de extração e índice; o mecanismo retorna evidências, sem produzir respostas. A estratégia de rejeição exige todos os termos significativos, com limitações lexicais explícitas. Consulte [recuperação documental](recuperacao-documental.md).
+
+Documentos e respostas de ferramentas deverão ser tratados como dados não confiáveis pelo futuro agente. O mecanismo atual apenas extrai e recupera texto; não executa instruções contidas nas políticas nem implementa orquestração de IA.
 
 ## Segurança e privacidade
 
@@ -51,3 +54,5 @@ Os erros retornam mensagens estáveis e genéricas. Observabilidade estruturada 
 ## Limitações conhecidas
 
 A saúde comprova somente que a API responde; não verifica modelos, bancos ou documentos. A disponibilidade é consultada na abertura e por nova tentativa após erro, sem monitoramento contínuo. Testes de interface usam JSDOM; verificação visual em navegador e tecnologias assistivas complementa esses testes. Persistência existe apenas localmente; não há identidade de cliente, criptografia do SQLite ou exposição HTTP dos serviços operacionais. Promoções não têm período de validade na origem e itens de pedido não têm preço histórico.
+
+FTS5 não compreende sinônimos ou contexto semântico. PDFs não possuem estrutura semântica garantida: títulos e frases são heurísticos, e documentos digitalizados não são suportados sem OCR autorizado. Nenhuma rota HTTP oferece políticas ou trechos. O índice é atualizado explicitamente pelo comando local, com versão da origem em cada evidência.

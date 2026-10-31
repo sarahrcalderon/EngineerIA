@@ -2,7 +2,7 @@
 
 Fundação técnica de um assistente de atendimento para a loja fictícia Empório da Música, de Campo Grande/MS, no contexto do desafio de AI Engineer da Artefact.
 
-A Fase 1 entrega uma API de saúde e uma interface que verifica sua disponibilidade. A Fase 2 acrescenta importação local de CSVs, persistência SQLite e serviços internos de catálogo e pedidos. Não há chat, agente, processamento do PDF ou exposição dos dados operacionais por HTTP.
+A Fase 1 entrega uma API de saúde e uma interface que verifica sua disponibilidade. A Fase 2 acrescenta importação local de CSVs, persistência SQLite e serviços internos de catálogo e pedidos. A Fase 3 acrescenta extração local do PDF, segmentação e recuperação lexical de evidências. Não há chat, agente ou exposição dos dados operacionais e documentais por HTTP.
 
 ## Tecnologias e decisões
 
@@ -13,6 +13,7 @@ A Fase 1 entrega uma API de saúde e uma interface que verifica sua disponibilid
 - `fetch` nativo: comunicação HTTP sem dependência adicional.
 - `pydantic-settings`: configuração tipada por variáveis de ambiente.
 - `sqlite3`, `csv` e `decimal` da biblioteca padrão: persistência, importação e conversões monetárias exatas, sem novas dependências.
+- `pypdf` (BSD-3-Clause) e SQLite FTS5: extração e busca documental local. `pypdf` é a única dependência adicionada na Fase 3.
 
 Todas as ferramentas necessárias à execução local são gratuitas. Não é necessário Docker nem provedor de IA. As versões efetivamente resolvidas estão em `frontend/package-lock.json` e `backend/requirements-dev.lock`.
 
@@ -26,6 +27,7 @@ backend/
     aplicacao/           # contratos e serviços internos de catálogo/pedidos
     infraestrutura/      # CSV, importação, esquema, conexões e repositórios
     importar.py          # comando local de importação
+    indexar_politicas.py  # comando local de indexação documental
     configuracao.py      # ambiente e CORS
     principal.py         # fábrica da aplicação e erros
   testes/                # regressão HTTP e dados operacionais sintéticos
@@ -41,8 +43,10 @@ frontend/
 docs/
   arquitetura/visao-geral.md
   arquitetura/dados-operacionais.md
+  arquitetura/recuperacao-documental.md
   decisoes/0001-arquitetura-inicial.md
   decisoes/0002-persistencia-operacional.md
+  decisoes/0003-recuperacao-documental.md
 data/                    # confidencial, local, ignorado pelo Git
 .local/                  # banco confidencial e artefatos locais, ignorados
 ```
@@ -52,7 +56,7 @@ A fábrica `criar_aplicacao` recebe configurações e disponibiliza a instância
 ## Pré-requisitos
 
 - Windows com PowerShell, Python 3.12+ e Node.js 22.12+ (validado com Node 24).
-- SQLite 3.37+ no módulo `sqlite3` do Python, para tabelas `STRICT`.
+- SQLite 3.37+ no módulo `sqlite3` do Python, para tabelas `STRICT`, com suporte a FTS5 (verificado localmente em SQLite 3.43.1).
 - npm e acesso à internet para instalar dependências.
 - Git para inspeção do repositório.
 
@@ -119,6 +123,52 @@ Resposta HTTP 200:
 O Uvicorn recebe `.env` explicitamente por `--env-file`; `python-dotenv`, usado por essa opção, integra o conjunto de dependências de configuração. O Vite lê `frontend/.env.local`. Reinicie os serviços após alterar ambiente. CORS é independente do nome do ambiente: configure as origens adequadas em cada instalação, sem curingas. Credenciais não são permitidas por CORS nesta fase. Variáveis `VITE_*` são públicas e nunca devem conter segredos.
 
 O importador lê o ambiente do processo e as flags abaixo; ele não carrega `.env` automaticamente. Caminhos relativos de dados e banco são ancorados na raiz do projeto, independentemente do diretório atual do terminal. O banco deve terminar em `.sqlite`, `.sqlite3` ou `.db`.
+
+A indexação segue a mesma regra de ambiente e caminhos. Configure `EMPORIO_CAMINHO_PDF_POLITICAS` (padrão `data/políticas_da_loja.pdf`), `EMPORIO_CAMINHO_INDICE_POLITICAS` (padrão `.local/politicas.sqlite3`) e `EMPORIO_TAMANHO_MAXIMO_TRECHO` (padrão 1200 caracteres, entre 200 e 10000). Índice e banco operacional devem ter caminhos distintos. As configurações e a identidade interna do índice recusam o uso acidental do banco operacional.
+
+## Recuperação documental — Fase 3
+
+Após atualizar o ambiente com `backend/requirements-dev.lock`, execute na raiz:
+
+```powershell
+backend/.venv/Scripts/python.exe -m emporio_ia.indexar_politicas
+```
+
+Para escolher caminhos e tamanho:
+
+```powershell
+backend/.venv/Scripts/python.exe -m emporio_ia.indexar_politicas --pdf data/políticas_da_loja.pdf --indice .local/politicas.sqlite3 --tamanho-maximo 1200
+```
+
+O comando lê o PDF localmente e emite somente estado, quantidade de páginas, páginas sem texto, trechos e indicador de alteração. Não imprime políticas ou caminhos. Não carrega `.env` automaticamente; flags prevalecem sobre variáveis do processo. Pode ser invocado de outro diretório usando o caminho absoluto do Python do ambiente virtual.
+
+A extração usa `pypdf` em modo `layout`, mantendo a numeração original das páginas. Espaços são normalizados sem remover acentos, pontuação, preços ou prazos. Não há OCR: um PDF sem texto exige avaliação de uma solução local e autorização antes de introduzi-la. Páginas isoladas sem texto mantêm sua posição e não geram trechos. PDFs corrompidos ou protegidos por senha produzem erros sanitizados.
+
+Os trechos respeitam páginas e parágrafos, com divisão de parágrafos longos entre frases. Não há sobreposição. Uma frase maior que o limite causa erro para que o limite seja revisto, em vez de truncá-la. Metadados incluem identificador estável, página, seção inferida quando identificável, ordem, offsets no texto normalizado e hash do conteúdo.
+
+O índice FTS5 fica separado em `.local/politicas.sqlite3`. A reindexação substitui o conteúdo numa transação, sem duplicações. SHA-256 do PDF e assinatura da extração/segmentação/busca detectam alterações; falhas provocam rollback e preservam o índice anterior. O comando reconstrói o índice mesmo quando não há alteração; o indicador informa mudança da origem ou parâmetros, não identidade binária do SQLite. Não há monitoramento automático: reexecute o comando após atualizar o PDF ou as configurações.
+
+`ServicoRecuperacao.recuperar_politicas(pergunta, limite=5)` retorna evidências com `TrechoDocumento`, hash do PDF e pontuação BM25. A composição interna usa `RepositorioTrechos(BancoSQLite(configuracao.caminho_indice_politicas))`, sem dependência da implementação concreta na aplicação. Os testes em `backend/testes/documentos/` mostram a utilização exclusivamente com documentos fictícios.
+
+A busca ignora caixa e acentos, remove uma lista explícita de termos comuns e normaliza algumas terminações de plural. Exige todos os termos significativos no mesmo trecho ou em sua seção. Consultas apenas genéricas, numéricas ou sem correspondência retornam lista vazia. Esse filtro conservador rejeita correspondências parciais fracas, mas pode perder evidências existentes. Ausência de recuperação não prova ausência de uma política no documento. Não há sinônimos, embeddings, compreensão semântica ou geração de resposta. BM25 é ordenação lexical, não probabilidade de certeza. O limite aceito é de 1 a 20 evidências, após remover repetições de conteúdo.
+
+Detalhes e limitações estão em [recuperação documental](docs/arquitetura/recuperacao-documental.md) e na [ADR 0003](docs/decisoes/0003-recuperacao-documental.md).
+
+Exemplo de composição interna, depois de indexar, sem imprimir evidências confidenciais:
+
+```python
+from emporio_ia.aplicacao.documentos import ServicoRecuperacao
+from emporio_ia.configuracao import ConfiguracaoAplicacao
+from emporio_ia.infraestrutura.banco import BancoSQLite
+from emporio_ia.infraestrutura.documentos.repositorio import RepositorioTrechos
+
+configuracao = ConfiguracaoAplicacao()
+repositorio = RepositorioTrechos(BancoSQLite(configuracao.caminho_indice_politicas))
+servico = ServicoRecuperacao(repositorio)
+evidencias = servico.recuperar_politicas("trocas", limite=5)
+```
+
+A pergunta do exemplo é apenas um termo de busca; o código não pressupõe uma regra comercial ou resposta específica.
 
 ## Importação local — Fase 2
 
@@ -191,7 +241,7 @@ Formatação: `backend/.venv/Scripts/ruff.exe format backend` e `npm.cmd run for
 
 ## Confidencialidade
 
-Os arquivos operacionais são fornecidos separadamente e devem permanecer exclusivamente em `data/`, sem versionamento. Apenas o importador local lê os CSVs; a API e os testes não leem os dados reais. Não copie dados para testes, documentação, logs ou backups versionados. `.env`, `.local/`, bancos, journals, arquivos WAL/SHM e backups com extensões previstas também são ignorados. Mantenha quaisquer backups dentro de `.local/` ou em armazenamento privado fora do repositório.
+Os arquivos operacionais são fornecidos separadamente e devem permanecer exclusivamente em `data/`, sem versionamento. Apenas o importador local lê os CSVs e o indexador local lê o PDF; a API e os testes não leem os dados reais. Texto extraído, seções e índice também são confidenciais e permanecem em `.local/`. Não copie dados para testes, documentação, logs ou backups versionados. `.env`, `.local/`, bancos, journals, arquivos WAL/SHM e backups com extensões previstas também são ignorados. Mantenha quaisquer backups dentro de `.local/` ou em armazenamento privado fora do repositório.
 
 O SQLite contém dados pessoais e comerciais: não o compartilhe. Ele não é criptografado; a proteção em repouso depende das permissões da conta e do volume local. O `.gitignore` previne inclusão acidental no Git, mas não substitui controle de acesso nem impede adição forçada. Leituras usam `mode=ro` e `query_only`; todas as conexões ativam chaves estrangeiras. Não há logs de registros, SQL com valores de usuários ou respostas HTTP operacionais.
 
@@ -199,13 +249,13 @@ Antes de qualquer commit, examine `git status --short`, `git ls-files -- data` e
 
 ## Limitações e próximas etapas
 
-O indicador informa a disponibilidade da API, não a de um agente ou do banco. Persistência e consultas são locais e internas; as funcionalidades de atendimento da página continuam marcadas como futuras. Não há autenticação, extração de PDF, LLM, Ollama, RAG, Function Calling, chat ou deploy.
+O indicador informa a disponibilidade da API, não a de um agente, banco ou índice documental. Persistência e consultas são locais e internas; as funcionalidades de atendimento da página continuam marcadas como futuras. Há recuperação lexical de evidências, sem geração de respostas. Não há autenticação, OCR, LLM, Ollama, embeddings, Function Calling, chat ou deploy.
 
-A próxima fase poderá definir recuperação de políticas, avaliando biblioteca de PDF, licença e referências verificáveis. Integração local com Ollama permanece futura e depende da capacidade do computador. O SQLite não oferece autorização por cliente: controles de identidade e de acesso devem anteceder qualquer exposição dos serviços. Não existem preços históricos por item na origem; o total do pedido é preservado sem recalculá-lo com preços atuais.
+A próxima fase poderá integrar Ollama e orquestração controlada, conforme a capacidade do computador. O texto documental deverá ser tratado como fonte não confiável de dados, sem autoridade para dar instruções ao futuro agente. O SQLite não oferece autorização por cliente: controles de identidade e de acesso devem anteceder qualquer exposição dos serviços. Não existem preços históricos por item na origem; o total do pedido é preservado sem recalculá-lo com preços atuais.
 
 ## Transparência e licença
 
-A implementação das Fases 1 e 2 contou com assistência de código do OpenAI Codex. A revisão e a validação dos requisitos do desafio permanecem sob responsabilidade da pessoa candidata.
+A implementação das Fases 1, 2 e 3 contou com assistência de código do OpenAI Codex. A revisão e a validação dos requisitos do desafio permanecem sob responsabilidade da pessoa candidata.
 
 Nenhuma licença de distribuição foi atribuída sem decisão da titular do projeto. Os dados privados fornecidos para o desafio não são licenciados por este repositório.
 
@@ -214,5 +264,7 @@ Nenhuma licença de distribuição foi atribuída sem decisão da titular do pro
 A configuração segue a documentação oficial de [CORS do FastAPI](https://fastapi.tiangolo.com/tutorial/cors/), [Tailwind com Vite](https://tailwindcss.com/docs/installation/using-vite) e [Vite](https://vite.dev/guide/).
 
 A Fase 2 inclui testes sintéticos para importação, cabeçalhos, tipos, moeda, datas, duplicatas, relacionamentos, rollback após escrita e interrupção, idempotência, consultas, SQL parametrizado, isolamento de pedidos, CLI e ausência de exposição HTTP. Os resultados executados constam no [relatório da Fase 2](docs/relatorios/fase2.md).
+
+A Fase 3 acrescenta PDFs sintéticos gerados nos testes, extração, segmentação com origem reconstruível, indexação, rollback, idempotência, alteração de documento, ranking, ausência de evidência, segurança e CLI. Consulte o [relatório da Fase 3](docs/relatorios/fase3.md). Para executar somente os testes documentais: `backend/.venv/Scripts/python.exe -m pytest backend/testes/documentos`.
 
 Não foi realizada inspeção visual em navegador nesta sessão. A auditoria npm da Fase 1 apontava 12 alertas moderados na cadeia de desenvolvimento do ESLint, ligados a `minimatch`; as dependências frontend não foram alteradas nem novamente auditadas na Fase 2. O pytest continua emitindo um aviso de depreciação do transporte `httpx` no TestClient do Starlette; os testes passam.

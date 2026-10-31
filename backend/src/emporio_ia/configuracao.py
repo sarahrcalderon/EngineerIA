@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 RAIZ_PROJETO = Path(__file__).resolve().parents[3]
@@ -19,20 +19,38 @@ class ConfiguracaoAplicacao(BaseSettings):
     versao: str = "0.1.0"
     diretorio_dados: Path = RAIZ_PROJETO / "data"
     caminho_banco: Path = RAIZ_PROJETO / ".local" / "emporio.sqlite3"
+    caminho_pdf_politicas: Path = RAIZ_PROJETO / "data" / "políticas_da_loja.pdf"
+    caminho_indice_politicas: Path = RAIZ_PROJETO / ".local" / "politicas.sqlite3"
+    tamanho_maximo_trecho: int = Field(default=1200, ge=200, le=10000)
 
-    @field_validator("diretorio_dados", "caminho_banco")
+    @field_validator(
+        "diretorio_dados",
+        "caminho_banco",
+        "caminho_pdf_politicas",
+        "caminho_indice_politicas",
+    )
     @classmethod
     def resolver_caminho(cls, caminho: Path) -> Path:
         if not caminho.is_absolute():
             caminho = RAIZ_PROJETO / caminho
         return caminho.resolve()
 
-    @field_validator("caminho_banco")
+    @field_validator("caminho_banco", "caminho_indice_politicas")
     @classmethod
     def validar_banco(cls, caminho: Path) -> Path:
         if caminho.suffix.lower() not in {".sqlite", ".sqlite3", ".db"}:
             raise ValueError("O banco deve ter extensão .sqlite, .sqlite3 ou .db.")
         return caminho
+
+    @model_validator(mode="after")
+    def separar_bancos(self) -> "ConfiguracaoAplicacao":
+        if self.caminho_banco == self.caminho_indice_politicas:
+            raise ValueError(
+                "Índice documental e banco operacional devem ser distintos."
+            )
+        if self.caminho_pdf_politicas.suffix.lower() != ".pdf":
+            raise ValueError("O documento de políticas deve ser um PDF.")
+        return self
 
     @field_validator("origens_cors")
     @classmethod

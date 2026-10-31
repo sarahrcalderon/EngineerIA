@@ -7,7 +7,13 @@ name = "emporio-ia"
 version = "0.1.0"
 description = "Fundação da API do Empório da Música"
 requires-python = ">=3.12"
-dependencies = ["fastapi>=0.115,<1", "pydantic>=2.10,<3", "pydantic-settings>=2.7,<3", "uvicorn>=0.34,<1"]
+dependencies = [
+    "fastapi>=0.115,<1",
+    "pydantic>=2.10,<3",
+    "pydantic-settings>=2.7,<3",
+    "uvicorn>=0.34,<1",
+    "pypdf>=6.21.4,<7",
+]
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10", "httpx>=0.28,<1", "ruff>=0.11,<1"]
