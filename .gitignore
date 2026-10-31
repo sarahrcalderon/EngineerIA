@@ -1,0 +1,33 @@
+﻿# Dados confidenciais fornecidos para o desafio
+/data/
+
+# Variáveis de ambiente
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Banco de dados local
+*.sqlite
+*.sqlite3
+*.db
+
+# Logs e temporários
+*.log
+*.tmp
+*.bak
