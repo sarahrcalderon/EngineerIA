@@ -7,6 +7,11 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 from emporio_ia.aplicacao.catalogo import ServicoCatalogo
 from emporio_ia.aplicacao.documentos import ServicoRecuperacao
 from emporio_ia.dominio.agente import ChamadaFerramenta, DadoFerramenta, ErroFerramenta
+from emporio_ia.dominio.apresentacao import (
+    CategoriaApresentacao,
+    ProdutoApresentacao,
+    PromocaoApresentacao,
+)
 from emporio_ia.dominio.busca_produtos import normalizar_busca_produto
 from emporio_ia.dominio.consultas import FiltroProdutos, centavos_para_decimal
 from emporio_ia.dominio.entidades import Produto, Promocao
@@ -152,7 +157,17 @@ class FerramentasLeitura:
         )
         if categoria is not None:
             texto += f" Categoria: {json.dumps(categoria.nome, ensure_ascii=False)}."
-        return DadoFerramenta("catalogo", texto, f"produto:{produto.identificador}")
+        return DadoFerramenta(
+            "catalogo",
+            texto,
+            f"produto:{produto.identificador}",
+            apresentacao=ProdutoApresentacao(
+                produto.nome,
+                produto.preco_centavos,
+                produto.disponivel,
+                categoria.nome if categoria is not None else None,
+            ),
+        )
 
     def _promocao(self, promocao: Promocao) -> DadoFerramenta:
         percentual = format(
@@ -166,6 +181,11 @@ class FerramentasLeitura:
             f"Indicador no cadastro: {indicador}. "
             "Vigência temporal não confirmada; sem datas na origem.",
             f"promocao:{promocao.identificador}",
+            apresentacao=PromocaoApresentacao(
+                promocao.produto_id,
+                promocao.desconto_pontos_base,
+                promocao.ativa,
+            ),
         )
 
     def _executar(self, chamada: ChamadaFerramenta) -> tuple[DadoFerramenta, ...]:
@@ -189,6 +209,7 @@ class FerramentasLeitura:
                         "Categoria cadastrada: "
                         f"{json.dumps(categoria.nome, ensure_ascii=False)}.",
                         f"categoria:{categoria.identificador}",
+                        apresentacao=CategoriaApresentacao(categoria.nome),
                     )
                     for categoria in self.catalogo.listar_categorias()[:limite]
                 )

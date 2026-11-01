@@ -35,6 +35,7 @@ export function useConversa() {
         papel: 'usuario',
         texto: pergunta.trim(),
         referencias: [],
+        horario: new Date().toISOString(),
       };
       definirMensagens((atuais) => [...atuais.slice(-48), nova]);
     }
@@ -50,6 +51,9 @@ export function useConversa() {
         papel: 'assistente',
         texto: resposta.resposta,
         referencias: resposta.referencias,
+        produtos: resposta.produtos,
+        complemento: resposta.complemento,
+        horario: new Date().toISOString(),
       };
       definirMensagens((atuais) => [...atuais, nova]);
     } catch (falha) {

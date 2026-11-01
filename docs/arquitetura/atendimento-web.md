@@ -41,6 +41,8 @@ Padrões configuráveis: 8.192 bytes por corpo, 10 segundos para leitura, 20 req
 
 ## Interface e sessão
 
+Respostas comerciais incluem `produtos` (nome, preço em centavos, disponibilidade e categoria) e `complemento`, além do texto alternativo `resposta`. A projeção estruturada deve reconstruir exatamente o texto da evidência aprovada antes de ser apresentada. O frontend usa cards apenas para esses campos validados; não extrai valores de prosa ou Markdown. Fontes continuam disponíveis em “Fontes consultadas”, inicialmente recolhidas. Os fingerprints e a política de autorização permanecem os mesmos. Detalhes e limites da validação estão no [relatório de refinamento](../relatorios/refinamento-ux-chat.md).
+
 Componentes React separam cabeçalho, sugestões, área de mensagens e composição. O painel segue o padrão clássico de atendimento, sem barra lateral: saudação e respostas da loja à esquerda, cliente à direita, cabeçalho e rodapé fora da região de rolagem. O histórico reside apenas no estado React, limitado às 50 mensagens recentes e descartado ao recarregar ou iniciar nova conversa. Cada pergunta é independente para o agente. Somente a preferência visual é salva em `localStorage`; indisponibilidade desse armazenamento é tolerada.
 
 Enter envia, Shift+Enter quebra linha e composição por IME não dispara envio. O visitante pode cancelar, tentar novamente ou iniciar nova conversa. Respostas tardias são descartadas. O log de mensagens anuncia atualizações e oferece retorno ao fim quando o visitante lê conteúdo anterior. Texto é renderizado como texto React, sem HTML ou Markdown executável. Fontes vêm exclusivamente da API.

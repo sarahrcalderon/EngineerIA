@@ -64,6 +64,29 @@ describe('transporte de atendimento', () => {
       referencias: [{ tipo: 'politica', titulo: 'Fonte', pagina: 999 }],
     },
     { ...respostaValida, requisicao_id: 123 },
+    {
+      ...respostaValida,
+      produtos: [
+        {
+          nome: 'Falso',
+          preco_centavos: -1,
+          disponivel: true,
+          categoria: null,
+        },
+      ],
+    },
+    {
+      ...respostaValida,
+      produtos: [
+        {
+          nome: 'Falso',
+          preco_centavos: 100,
+          disponivel: true,
+          categoria: null,
+        },
+      ],
+      complemento: '',
+    },
   ])('recusa contrato inválido', async (resposta) => {
     vi.stubGlobal(
       'fetch',

@@ -1,6 +1,11 @@
 from dataclasses import dataclass
 from typing import Literal
 
+from emporio_ia.dominio.apresentacao import (
+    CategoriaApresentacao,
+    ProdutoApresentacao,
+    PromocaoApresentacao,
+)
 from emporio_ia.dominio.excecoes import ErroDados
 
 
@@ -42,6 +47,9 @@ class DadoFerramenta:
     texto: str
     referencia: str
     pontuacao_bm25: float | None = None
+    apresentacao: (
+        ProdutoApresentacao | CategoriaApresentacao | PromocaoApresentacao | None
+    ) = None
 
 
 @dataclass(frozen=True, slots=True, repr=False)

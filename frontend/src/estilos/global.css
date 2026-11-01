@@ -11,10 +11,10 @@
   --texto: #2d302a;
   --muted: #65685c;
   --borda: #deded3;
-  --ambar: #815014;
-  --realce: #edbb6a;
-  --suave: #f4ead5;
-  --cliente: #f0ca8a;
+  --ambar: #9b4610;
+  --realce: #ea741c;
+  --suave: #fff0e3;
+  --cliente: #ffe0c4;
   --texto-cliente: #3e2c12;
   --verde: #3d6b37;
   --perigo: #9b3d2e;
@@ -29,10 +29,10 @@
   --texto: #edf0e6;
   --muted: #bbc1b3;
   --borda: #414b3e;
-  --ambar: #efbd6c;
-  --realce: #efbd6c;
-  --suave: #3a3828;
-  --cliente: #785324;
+  --ambar: #ffad70;
+  --realce: #ea741c;
+  --suave: #413024;
+  --cliente: #63391e;
   --texto-cliente: #fff3db;
   --verde: #aed49a;
   --perigo: #f0ae99;
@@ -683,5 +683,186 @@ h1 {
     animation: none !important;
     transition: none !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* Identidade e apresenta??o comercial compartilhadas em todos os tamanhos. */
+.avatar-cabecalho,
+.avatar-assistente {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--suave);
+  border: 1px solid var(--realce);
+  margin: 0;
+}
+.avatar-cabecalho .logotipo-emporio,
+.avatar-assistente .logotipo-emporio {
+  width: 22px;
+  height: 26px;
+  background-color: #ea741c;
+}
+.mensagem {
+  align-items: flex-start;
+}
+.espaco-avatar {
+  flex: 0 0 40px;
+}
+.conteudo-mensagem {
+  position: relative;
+}
+.autor-mensagem {
+  display: inline-block;
+  margin-right: 12px;
+}
+.horario-mensagem {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.mensagem-usuario .horario-mensagem {
+  color: inherit;
+  opacity: 0.8;
+}
+.produtos-resposta {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: grid;
+  gap: 10px;
+}
+.produto-resposta {
+  padding: 14px;
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  display: grid;
+  gap: 5px;
+  overflow-wrap: anywhere;
+  background: var(--conversa);
+}
+.nome-produto {
+  font-size: 16px;
+  line-height: 1.5;
+  font-weight: 650;
+}
+.preco-produto {
+  font-size: 21px;
+  color: var(--ambar);
+  line-height: 1.5;
+}
+.categoria-produto {
+  font-size: 13px;
+  color: var(--muted);
+}
+.disponibilidade-produto {
+  font-size: 14px;
+}
+.disponibilidade-produto.disponivel {
+  color: var(--verde);
+}
+.disponibilidade-produto.indisponivel {
+  color: var(--muted);
+}
+.conteudo-mensagem .complemento-resposta {
+  margin-top: 16px;
+}
+.fontes-consultadas {
+  margin-top: 14px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.fontes-consultadas summary {
+  cursor: pointer;
+  min-height: 44px;
+  padding: 10px 0;
+}
+.fontes-consultadas .referencias {
+  margin-top: 4px;
+  padding-top: 8px;
+}
+@media (max-width: 600px) {
+  .avatar-cabecalho,
+  .avatar-assistente {
+    width: 36px;
+    height: 36px;
+    flex-basis: 36px;
+  }
+  .espaco-avatar {
+    flex-basis: 36px;
+  }
+  .mensagem {
+    gap: 8px;
+  }
+  .mensagem-assistente {
+    padding-right: 8px;
+  }
+  .mensagem-usuario {
+    padding-left: 32px;
+  }
+  .conteudo-mensagem {
+    max-width: calc(100% - 44px);
+    padding: 12px;
+  }
+  .mensagem-usuario .conteudo-mensagem {
+    max-width: 100%;
+  }
+  .produto-resposta {
+    padding: 12px;
+  }
+}
+
+.imagem-produto {
+  margin: 0;
+  min-width: 0;
+}
+.quadro-imagem-produto {
+  aspect-ratio: 20 / 13;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #f4f1e9;
+}
+.quadro-imagem-produto img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.imagem-produto figcaption {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 6px;
+}
+.imagem-produto-fallback {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #675e53;
+  font-size: 13px;
+  text-align: center;
+  padding: 12px;
+}
+.dados-produto {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-width: 0;
+}
+.produto-resposta {
+  gap: 14px;
+}
+@media (min-width: 900px) {
+  .conteudo-mensagem:has(.produtos-resposta) {
+    width: 600px;
+  }
+  .produto-resposta {
+    grid-template-columns: 150px minmax(0, 1fr);
+    align-items: center;
   }
 }

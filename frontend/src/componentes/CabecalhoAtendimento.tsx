@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { consultarDisponibilidade } from '../servicos/atendimento';
 import { useTema } from '../hooks/useTema';
 import { DisponibilidadeApi } from './DisponibilidadeApi';
+import { AvatarAssistente } from './AvatarAssistente';
 
 interface Propriedades {
   aoNovaConversa: () => void;
@@ -35,9 +36,7 @@ export function CabecalhoAtendimento({
   return (
     <header className="cabecalho-atendimento">
       <div className="titulo-cabecalho">
-        <span className="avatar-cabecalho" aria-hidden="true">
-          <span className="logotipo-emporio" />
-        </span>
+        <AvatarAssistente cabecalho />
         <div>
           <h1>Atendimento do Empório</h1>
           <p>Empório da Música · Em validação</p>

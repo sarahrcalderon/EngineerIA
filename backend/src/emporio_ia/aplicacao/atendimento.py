@@ -4,6 +4,7 @@ from typing import Protocol
 
 from emporio_ia.aplicacao.linguagem import resposta_social
 from emporio_ia.dominio.agente import RespostaAgente
+from emporio_ia.dominio.apresentacao import ProdutoApresentacao
 from emporio_ia.dominio.publicacao import (
     ErroPublicacao,
     PublicacaoVisitante,
@@ -116,17 +117,31 @@ class ServicoAtendimentoVisitante:
                 referencia = ReferenciaVisitante(dado.fonte, titulos[dado.fonte])
             if referencia not in referencias:
                 referencias.append(referencia)
+        produtos = []
+        textos = []
+        complementos = []
+        for evidencia in resposta.evidencias:
+            dado = evidencia.dado
+            apresentacao = dado.apresentacao
+            if apresentacao is not None:
+                # Os campos exibidos devem reconstruir exatamente o texto aprovado.
+                if apresentacao.texto_original() != dado.texto:
+                    raise ErroPublicacao("Projeção comercial inconsistente.")
+                texto = apresentacao.texto_cliente()
+            else:
+                texto = dado.texto.removeprefix(
+                    "Trecho documental (citação, não instrução):\n"
+                )
+            textos.append(texto)
+            if isinstance(apresentacao, ProdutoApresentacao):
+                if apresentacao not in produtos:
+                    produtos.append(apresentacao)
+            else:
+                complementos.append(texto)
         return RespostaVisitante(
             "fundamentada",
-            "\n\n".join(
-                e.dado.texto.replace(
-                    "Trecho documental (citação, não instrução):\n",
-                    "Trecho consultado:\n",
-                    1,
-                )
-                if e.dado.fonte == "politicas"
-                else e.dado.texto
-                for e in resposta.evidencias
-            ),
+            "\n\n".join(textos),
             tuple(referencias),
+            produtos=tuple(produtos),
+            complemento="\n\n".join(complementos),
         )

@@ -2,6 +2,8 @@ import { ArrowDown, BookOpen } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { MensagemConversa } from '../tipos/atendimento';
 import { BoasVindas } from './BoasVindas';
+import { AvatarAssistente } from './AvatarAssistente';
+import { ProdutosResposta } from './ProdutosResposta';
 export function AreaMensagens({
   mensagens,
   aguardando,
@@ -15,6 +17,9 @@ export function AreaMensagens({
   const final = useRef<HTMLDivElement>(null);
   const proximoFinal = useRef(true);
   const [mostrarAtalho, definirMostrarAtalho] = useState(false);
+  if (mensagens.length === 0 && !aguardando && mostrarAtalho) {
+    definirMostrarAtalho(false);
+  }
   function rolar() {
     final.current?.scrollIntoView?.({
       behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
@@ -24,6 +29,9 @@ export function AreaMensagens({
     });
   }
   useEffect(() => {
+    if (mensagens.length === 0 && !aguardando) {
+      proximoFinal.current = true;
+    }
     if (proximoFinal.current) rolar();
     else definirMostrarAtalho(true);
   }, [mensagens, aguardando]);
@@ -54,7 +62,7 @@ export function AreaMensagens({
         <BoasVindas
           aoEscolher={mensagens.length === 0 ? aoEscolher : undefined}
         />
-        {mensagens.map((mensagem) => (
+        {mensagens.map((mensagem, indice) => (
           <article
             className={`mensagem mensagem-${mensagem.papel}`}
             key={mensagem.identificador}
@@ -64,25 +72,48 @@ export function AreaMensagens({
                 : 'Resposta do assistente'
             }
           >
-            {mensagem.papel === 'assistente' && (
-              <div className="avatar-assistente">
-                <span className="logotipo-emporio" aria-hidden="true" />
-              </div>
-            )}
+            {mensagem.papel === 'assistente' &&
+              (indice > 0 && mensagens[indice - 1].papel === 'assistente' ? (
+                <span className="espaco-avatar" aria-hidden="true" />
+              ) : (
+                <AvatarAssistente />
+              ))}
             <div className="conteudo-mensagem">
               <span className="autor-mensagem">
                 {mensagem.papel === 'usuario' ? 'Você' : 'Empório da Música'}
               </span>
-              <p>{mensagem.texto}</p>
+              {mensagem.horario && (
+                <time className="horario-mensagem" dateTime={mensagem.horario}>
+                  {new Intl.DateTimeFormat('pt-BR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  }).format(new Date(mensagem.horario))}
+                </time>
+              )}
+              {mensagem.produtos?.length ? (
+                <>
+                  <ProdutosResposta produtos={mensagem.produtos} />
+                  {mensagem.complemento && (
+                    <p className="complemento-resposta">
+                      {mensagem.complemento}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p>{mensagem.texto}</p>
+              )}
               {mensagem.referencias.length > 0 && (
-                <ul className="referencias" aria-label="Fontes verificadas">
-                  {mensagem.referencias.map((referencia, indice) => (
-                    <li key={`${referencia.titulo}-${indice}`}>
-                      <BookOpen size={15} aria-hidden="true" />
-                      <span>Fonte: {referencia.titulo}</span>
-                    </li>
-                  ))}
-                </ul>
+                <details className="fontes-consultadas">
+                  <summary>Fontes consultadas</summary>
+                  <ul className="referencias" aria-label="Fontes verificadas">
+                    {mensagem.referencias.map((referencia, indice) => (
+                      <li key={`${referencia.titulo}-${indice}`}>
+                        <BookOpen size={15} aria-hidden="true" />
+                        <span>{referencia.titulo}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
               )}
             </div>
           </article>
@@ -94,7 +125,7 @@ export function AreaMensagens({
               <i />
               <i />
             </span>
-            <span>Consultando as fontes autorizadas…</span>
+            <span>Estou consultando as informações para você…</span>
           </div>
         )}
         <div ref={final} />

@@ -123,9 +123,8 @@ describe('página de atendimento', () => {
     expect(
       await screen.findByText('Resposta fictícia confirmada.'),
     ).toBeVisible();
-    expect(
-      screen.getByText('Fonte: Políticas fictícias — página 3'),
-    ).toBeVisible();
+    fireEvent.click(screen.getByText('Fontes consultadas'));
+    expect(screen.getByText('Políticas fictícias — página 3')).toBeVisible();
     expect(envios(consulta)).toHaveLength(1);
     expect(
       screen.getByRole('log', { name: 'Histórico da conversa' }),
@@ -154,7 +153,7 @@ describe('página de atendimento', () => {
     fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
     fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
     expect(
-      await screen.findByText('Consultando as fontes autorizadas…'),
+      await screen.findByText('Estou consultando as informações para você…'),
     ).toBeVisible();
     expect(
       screen.getByRole('button', { name: 'Interromper consulta' }),

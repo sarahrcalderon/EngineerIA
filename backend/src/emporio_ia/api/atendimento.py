@@ -33,6 +33,13 @@ class ReferenciaResposta(BaseModel):
     pagina: int | None = Field(default=None, ge=1, le=500)
 
 
+class ProdutoResposta(BaseModel):
+    nome: str = Field(min_length=1, max_length=500)
+    preco_centavos: int = Field(ge=0)
+    disponivel: bool
+    categoria: str | None = Field(max_length=500)
+
+
 class SaidaMensagem(BaseModel):
     estado: Literal[
         "social",
@@ -47,6 +54,8 @@ class SaidaMensagem(BaseModel):
     resposta: str = Field(max_length=16000)
     referencias: list[ReferenciaResposta] = Field(max_length=20)
     requisicao_id: str
+    produtos: list[ProdutoResposta] = Field(default_factory=list, max_length=20)
+    complemento: str = Field(default="", max_length=16000)
 
 
 def obter_atendimento(requisicao: Request) -> ServicoAtendimentoVisitante:
@@ -133,6 +142,8 @@ async def enviar_mensagem(
                 ReferenciaResposta(**asdict(ref)) for ref in resultado.referencias
             ],
             requisicao_id=str(uuid4()),
+            produtos=[ProdutoResposta(**asdict(p)) for p in resultado.produtos],
+            complemento=resultado.complemento,
         )
     except TimeoutError:
         return erro_atendimento("timeout", "A consulta excedeu o tempo permitido.", 504)

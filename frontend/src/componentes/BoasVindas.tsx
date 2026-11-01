@@ -1,4 +1,5 @@
 import { BookOpen, Guitar, Layers } from 'lucide-react';
+import { AvatarAssistente } from './AvatarAssistente';
 
 const sugestoes = [
   {
@@ -29,9 +30,7 @@ export function BoasVindas({
         className="mensagem mensagem-assistente"
         aria-label="Mensagem de boas-vindas"
       >
-        <div className="avatar-assistente" aria-hidden="true">
-          <span className="logotipo-emporio" />
-        </div>
+        <AvatarAssistente />
         <div className="conteudo-mensagem">
           <span className="autor-mensagem">Empório da Música</span>
           <p>

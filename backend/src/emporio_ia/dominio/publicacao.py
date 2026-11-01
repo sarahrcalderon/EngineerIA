@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 
 from emporio_ia.dominio.agente import DadoFerramenta
+from emporio_ia.dominio.apresentacao import ProdutoApresentacao
 from emporio_ia.dominio.excecoes import ErroDados
 
 
@@ -68,3 +69,5 @@ class RespostaVisitante:
     resposta: str
     referencias: tuple[ReferenciaVisitante, ...] = ()
     categoria_erro: str | None = None
+    produtos: tuple[ProdutoApresentacao, ...] = ()
+    complemento: str = ""

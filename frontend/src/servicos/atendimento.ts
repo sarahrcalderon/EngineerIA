@@ -26,6 +26,20 @@ function referenciaValida(valor: unknown): valor is ReferenciaResposta {
   );
 }
 
+function produtoValido(valor: unknown): boolean {
+  return (
+    objeto(valor) &&
+    typeof valor.nome === 'string' &&
+    valor.nome.trim().length > 0 &&
+    valor.nome.length <= 500 &&
+    Number.isSafeInteger(valor.preco_centavos) &&
+    Number(valor.preco_centavos) >= 0 &&
+    typeof valor.disponivel === 'boolean' &&
+    (valor.categoria === null ||
+      (typeof valor.categoria === 'string' && valor.categoria.length <= 500))
+  );
+}
+
 export async function enviarPergunta(
   mensagem: string,
   sinal?: AbortSignal,
@@ -60,6 +74,17 @@ export async function enviarPergunta(
     !Array.isArray(valor.referencias) ||
     valor.referencias.length > 20 ||
     !valor.referencias.every(referenciaValida) ||
+    (valor.produtos !== undefined &&
+      (!Array.isArray(valor.produtos) ||
+        valor.produtos.length > 20 ||
+        !valor.produtos.every(produtoValido) ||
+        (valor.produtos.length > 0 &&
+          (valor.estado !== 'fundamentada' ||
+            !valor.referencias.some((r) => r.tipo === 'catalogo') ||
+            typeof valor.complemento !== 'string')))) ||
+    (valor.complemento !== undefined &&
+      (typeof valor.complemento !== 'string' ||
+        valor.complemento.length > 16000)) ||
     typeof valor.requisicao_id !== 'string' ||
     !/^[a-f0-9-]{36}$/i.test(valor.requisicao_id)
   )

@@ -35,7 +35,7 @@ if not 1 <= REPETICOES <= 5:
             "estoque",
             "O produto 202 está disponível?",
             "fundamentada",
-            "indisponível",
+            "Indisponível no momento",
             None,
         ),
         (
@@ -125,6 +125,8 @@ def test_atendimento_com_modelo_real(
     corpo = resposta.json()
     assert corpo["estado"] == estado
     assert trecho in corpo["resposta"]
+    if categoria == "estoque":
+        assert corpo["produtos"][0]["disponivel"] is False
     if pagina is not None:
         assert any(ref["pagina"] == pagina for ref in corpo["referencias"])
     assert "alfa@example.invalid" not in corpo["resposta"]

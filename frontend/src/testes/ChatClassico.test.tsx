@@ -113,8 +113,33 @@ describe('chat clássico', () => {
     render(<AreaMensagens mensagens={mensagens} aguardando />);
     expect(rolar).toHaveBeenCalledWith({ behavior: 'instant', block: 'end' });
     expect(screen.getByRole('status')).toHaveTextContent(
-      'Consultando as fontes autorizadas…',
+      'Estou consultando as informações para você…',
     );
+  });
+
+  it('remove o atalho de mensagens recentes ao iniciar nova conversa', () => {
+    const { rerender } = render(
+      <AreaMensagens mensagens={mensagens} aguardando={false} />,
+    );
+    const regiao = screen.getByRole('region');
+    Object.defineProperties(regiao, {
+      scrollHeight: { value: 1400 },
+      clientHeight: { value: 400 },
+    });
+    fireEvent.scroll(regiao, { target: { scrollTop: 100 } });
+    rerender(
+      <AreaMensagens
+        mensagens={[...mensagens, { ...mensagens[0], identificador: 3 }]}
+        aguardando={false}
+      />,
+    );
+    expect(
+      screen.getByRole('button', { name: 'Ver mensagens recentes' }),
+    ).toBeVisible();
+    rerender(<AreaMensagens mensagens={[]} aguardando={false} />);
+    expect(
+      screen.queryByRole('button', { name: 'Ver mensagens recentes' }),
+    ).not.toBeInTheDocument();
   });
 
   it('expande o campo até o limite visual e preserva a referência de foco', () => {
