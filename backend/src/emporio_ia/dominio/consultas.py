@@ -4,6 +4,8 @@ from decimal import Decimal
 from emporio_ia.dominio.excecoes import ErroValidacao
 from emporio_ia.dominio.validacao import LIMITE_INTEIRO
 
+MAXIMO_PRODUTOS_ATENDIMENTO = 20
+
 
 def validar_numero_consulta(numero: int, *, minimo: int = 1) -> None:
     if type(numero) is not int or not minimo <= numero <= LIMITE_INTEIRO:
@@ -19,8 +21,32 @@ class FiltroProdutos:
     disponiveis: bool | None = None
     limite: int = 50
     deslocamento: int = 0
+    categoria: str | None = None
+    ordenacao: str = "identificador"
+    identificadores: tuple[int, ...] | None = None
 
     def __post_init__(self) -> None:
+        if self.ordenacao not in {
+            "identificador",
+            "preco_crescente",
+            "preco_decrescente",
+        }:
+            raise ErroValidacao("Ordenação inválida.")
+        if self.identificadores is not None:
+            if (
+                not isinstance(self.identificadores, tuple)
+                or len(self.identificadores) > 500
+            ):
+                raise ErroValidacao("Seleção de publicação inválida.")
+            for identificador in self.identificadores:
+                validar_numero_consulta(identificador)
+        if self.categoria is not None and (
+            not isinstance(self.categoria, str)
+            or not self.categoria.strip()
+            or len(self.categoria) > 200
+            or "\x00" in self.categoria
+        ):
+            raise ErroValidacao("Categoria inválida.")
         validar_numero_consulta(self.limite)
         validar_numero_consulta(self.deslocamento, minimo=0)
         if self.limite > 200:

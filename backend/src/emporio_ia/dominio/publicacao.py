@@ -71,3 +71,4 @@ class RespostaVisitante:
     categoria_erro: str | None = None
     produtos: tuple[ProdutoApresentacao, ...] = ()
     complemento: str = ""
+    introducao: str = ""

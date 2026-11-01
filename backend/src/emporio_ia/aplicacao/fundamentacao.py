@@ -3,6 +3,7 @@ import re
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from emporio_ia.aplicacao.consulta_catalogo import interpretar_consulta_catalogo
 from emporio_ia.dominio.agente import Evidencia, RespostaAgente
 from emporio_ia.dominio.validacao import chave_busca
 
@@ -35,10 +36,14 @@ class FinalizacaoModelo(BaseModel):
 def fontes_necessarias(pergunta: str) -> set[str]:
     texto = chave_busca(pergunta)
     fontes: set[str] = set()
+    consulta = interpretar_consulta_catalogo(pergunta)
+    if consulta is not None:
+        fontes.add("catalogo")
     if re.search(
         r"\b(preco|precos|valor|valores|custa|custam|estoque|disponibilidade|disponivel|"
         r"produto|produtos|instrumento|instrumentos|catalogo|modelos|vendem|comprar|"
-        r"violao|violoes|guitarra|guitarras|teclado|teclados)\b",
+        r"violao|violoes|guitarra|guitarras|teclado|teclados|baixos?|baterias?|"
+        r"baratos?|baratas?|caros?|caras?|opcoes)\b|\bmais em conta\b",
         texto,
     ):
         fontes.add("catalogo")
@@ -50,7 +55,7 @@ def fontes_necessarias(pergunta: str) -> set[str]:
         fontes.add("politicas")
     if re.search(r"\b(promocao|promocoes|desconto|descontos)\b", texto):
         fontes.add("promocoes")
-    if re.search(r"\b(categoria|categorias)\b", texto):
+    if consulta is None and re.search(r"\b(categoria|categorias)\b", texto):
         fontes.add("categorias")
     return fontes
 

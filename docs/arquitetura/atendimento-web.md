@@ -31,6 +31,8 @@ Saudações, agradecimentos e despedidas isoladas retornam estado `social`, sem 
 
 ## Contratos e limites
 
+`buscar_produtos` aceita critérios estruturados de categoria, termo, disponibilidade, faixa em centavos e ordenação de preço, com até 20 itens explícitos (padrão sem quantidade preservado). O SQL usa desempate por identificador. Para visitantes, candidatos são restritos às referências aprovadas e seus hashes são conferidos antes de preencher o limite final. A API transporta a introdução natural em `introducao`; os cards mantêm a ordem do backend. Consulte a [validação das consultas inteligentes](../relatorios/consultas-inteligentes-catalogo.md).
+
 - `GET /api/saude`: processo da API; não mede inferência.
 - `GET /api/atendimento/disponibilidade`: verifica metadados, instalação local e capacidade de ferramentas. `modelo=acessivel` não significa homologado; `homologacao=pendente` permanece explícito.
 - `POST /api/atendimento/mensagens`: recebe exclusivamente `{"mensagem":"..."}`, até 1.000 caracteres. Retorna estado, resposta, referências e identificador aleatório da requisição. Não recebe histórico nem identidade do cliente.

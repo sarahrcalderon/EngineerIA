@@ -23,6 +23,35 @@ const mensagem: MensagemConversa = {
 };
 
 describe('apresentação comercial', () => {
+  it('exibe introdução e todos os três produtos ordenados recebidos da API', () => {
+    render(
+      <AreaMensagens
+        mensagens={[
+          {
+            ...mensagem,
+            introducao:
+              'Encontrei estas opções com os menores preços do catálogo autorizado:',
+            produtos: [10000, 20000, 30000].map((preco, i) => ({
+              ...produto,
+              nome: `Opção fictícia ${i + 1}`,
+              preco_centavos: preco,
+            })),
+          },
+        ]}
+        aguardando={false}
+      />,
+    );
+    expect(
+      screen.getByText(/Encontrei estas opções com os menores preços/),
+    ).toBeVisible();
+    const cards = within(
+      screen.getByRole('list', { name: 'Produtos encontrados' }),
+    ).getAllByRole('listitem');
+    expect(cards).toHaveLength(3);
+    cards.forEach((card, i) =>
+      expect(within(card).getByText(`Opção fictícia ${i + 1}`)).toBeVisible(),
+    );
+  });
   it('destaca um produto com preço BRL e disponibilidade sem texto técnico', () => {
     render(<AreaMensagens mensagens={[mensagem]} aguardando={false} />);
     const lista = screen.getByRole('list', { name: 'Produtos encontrados' });

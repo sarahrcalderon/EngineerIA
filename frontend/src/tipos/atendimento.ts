@@ -25,6 +25,7 @@ export interface RespostaAtendimento {
   requisicao_id: string;
   produtos?: ProdutoResposta[];
   complemento?: string;
+  introducao?: string;
 }
 export interface MensagemConversa {
   identificador: number;
@@ -34,6 +35,7 @@ export interface MensagemConversa {
   produtos?: ProdutoResposta[];
   complemento?: string;
   horario?: string;
+  introducao?: string;
 }
 export interface DisponibilidadeAtendimento {
   modelo: 'acessivel' | 'indisponivel';

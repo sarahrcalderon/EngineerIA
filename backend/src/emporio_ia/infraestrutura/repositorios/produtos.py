@@ -40,6 +40,24 @@ class RepositorioProdutos:
     def buscar_produtos(self, filtros: FiltroProdutos) -> list[Produto]:
         condicoes: list[str] = []
         parametros: list[str | int] = []
+        # Valores ausentes, textuais ou negativos não são preços válidos.
+        condicoes.append("typeof(preco_centavos) = 'integer' AND preco_centavos >= 0")
+        if filtros.identificadores is not None:
+            if not filtros.identificadores:
+                return []
+            condicoes.append(
+                "identificador IN ("
+                + ",".join("?" for _ in filtros.identificadores)
+                + ")"
+            )
+            parametros.extend(filtros.identificadores)
+        if filtros.categoria is not None:
+            condicoes.append(
+                "EXISTS (SELECT 1 FROM categorias c WHERE "
+                "c.identificador = produtos.categoria_id "
+                "AND instr(normalizar_produto(c.nome), ?) > 0)"
+            )
+            parametros.append(normalizar_busca_produto(filtros.categoria))
         if filtros.nome is not None:
             # instr faz busca literal, inclusive para %, _ e tentativas de SQL.
             condicoes.append(
@@ -64,6 +82,11 @@ class RepositorioProdutos:
             )
         clausula = " AND ".join(condicoes) if condicoes else "1 = 1"
         parametros.extend((filtros.limite, filtros.deslocamento))
+        ordenacao = {
+            "identificador": "identificador ASC",
+            "preco_crescente": "preco_centavos ASC, identificador ASC",
+            "preco_decrescente": "preco_centavos DESC, identificador ASC",
+        }[filtros.ordenacao]
         # Apenas fragmentos constantes compõem o SQL; todos os valores são parâmetros.
         with self.banco.conectar() as conexao:
             conexao.create_function(
@@ -71,7 +94,7 @@ class RepositorioProdutos:
             )
             linhas = conexao.execute(
                 f"SELECT {COLUNAS_PRODUTO} FROM produtos WHERE {clausula} "
-                "ORDER BY identificador LIMIT ? OFFSET ?",
+                f"ORDER BY {ordenacao} LIMIT ? OFFSET ?",
                 parametros,
             ).fetchall()
         return [converter_produto(linha) for linha in linhas]

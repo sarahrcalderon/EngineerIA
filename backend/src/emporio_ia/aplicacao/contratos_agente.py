@@ -1,4 +1,4 @@
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from emporio_ia.dominio.agente import (
     ChamadaFerramenta,
@@ -6,6 +6,7 @@ from emporio_ia.dominio.agente import (
     Mensagem,
     TurnoModelo,
 )
+from emporio_ia.dominio.publicacao import PublicacaoVisitante
 
 
 class ContratoModelo(Protocol):
@@ -21,4 +22,11 @@ class ContratoFerramentas(Protocol):
 
     async def executar(
         self, chamada: ChamadaFerramenta
+    ) -> tuple[DadoFerramenta, ...]: ...
+
+
+@runtime_checkable
+class ContratoConsultaPublicada(Protocol):
+    async def executar_publicada(
+        self, chamada: ChamadaFerramenta, publicacao: PublicacaoVisitante
     ) -> tuple[DadoFerramenta, ...]: ...

@@ -56,6 +56,7 @@ class SaidaMensagem(BaseModel):
     requisicao_id: str
     produtos: list[ProdutoResposta] = Field(default_factory=list, max_length=20)
     complemento: str = Field(default="", max_length=16000)
+    introducao: str = Field(default="", max_length=300)
 
 
 def obter_atendimento(requisicao: Request) -> ServicoAtendimentoVisitante:
@@ -144,6 +145,7 @@ async def enviar_mensagem(
             requisicao_id=str(uuid4()),
             produtos=[ProdutoResposta(**asdict(p)) for p in resultado.produtos],
             complemento=resultado.complemento,
+            introducao=resultado.introducao,
         )
     except TimeoutError:
         return erro_atendimento("timeout", "A consulta excedeu o tempo permitido.", 504)

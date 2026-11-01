@@ -5,7 +5,10 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
-from emporio_ia.aplicacao.contratos_agente import ContratoFerramentas
+from emporio_ia.aplicacao.contratos_agente import (
+    ContratoConsultaPublicada,
+    ContratoFerramentas,
+)
 from emporio_ia.dominio.agente import ChamadaFerramenta, DadoFerramenta
 from emporio_ia.dominio.publicacao import ErroPublicacao, PublicacaoVisitante
 
@@ -72,7 +75,12 @@ class FerramentasVisitante:
         return self.ferramentas.validar(chamada)
 
     async def executar(self, chamada: ChamadaFerramenta) -> tuple[DadoFerramenta, ...]:
-        dados = await self.ferramentas.executar(chamada)
+        if chamada.nome == "buscar_produtos" and isinstance(
+            self.ferramentas, ContratoConsultaPublicada
+        ):
+            dados = await self.ferramentas.executar_publicada(chamada, self.publicacao)
+        else:
+            dados = await self.ferramentas.executar(chamada)
         autorizados = tuple(dado for dado in dados if self.publicacao.permite(dado))
         if dados and not autorizados:
             raise ErroPublicacao(

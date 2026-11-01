@@ -58,6 +58,9 @@ export async function enviarPergunta(
   });
   if (
     !objeto(valor) ||
+    (valor.introducao !== undefined &&
+      (typeof valor.introducao !== 'string' ||
+        valor.introducao.length > 300)) ||
     typeof valor.resposta !== 'string' ||
     !valor.resposta.trim() ||
     valor.resposta.length > 16000 ||

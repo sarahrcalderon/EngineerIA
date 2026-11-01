@@ -53,6 +53,7 @@ export function useConversa() {
         referencias: resposta.referencias,
         produtos: resposta.produtos,
         complemento: resposta.complemento,
+        introducao: resposta.introducao,
         horario: new Date().toISOString(),
       };
       definirMensagens((atuais) => [...atuais, nova]);

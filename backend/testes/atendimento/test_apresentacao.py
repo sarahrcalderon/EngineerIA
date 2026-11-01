@@ -102,6 +102,31 @@ def test_projecoes_preservam_exatamente_texto_aprovado(contexto_publico):
             assert dado.apresentacao.texto_original() == dado.texto
 
 
+def test_produtos_distintos_com_campos_iguais_nao_perdem_cards(contexto_publico):
+    _, ferramentas = contexto_publico
+    primeiro = ferramentas._executar(
+        ChamadaFerramenta("consultar_produto", {"identificador": 201})
+    )[0]
+    segundo = replace(primeiro, referencia="produto:999")
+    dados = [primeiro, segundo]
+    publicacao = PublicacaoVisitante({d.referencia: resumo_evidencia(d) for d in dados})
+
+    class Agente:
+        async def processar_pergunta(self, pergunta):
+            return RespostaAgente(
+                "fundamentada",
+                "",
+                evidencias=tuple(Evidencia(f"E{i}", d) for i, d in enumerate(dados)),
+            )
+
+    resposta = asyncio.run(
+        ServicoAtendimentoVisitante(lambda p: Agente(), lambda: publicacao).atender(
+            "Produtos"
+        )
+    )
+    assert len(resposta.produtos) == 2
+
+
 @pytest.mark.parametrize(
     "ferramenta", ["buscar_produtos", "consultar_categorias", "consultar_promocoes"]
 )

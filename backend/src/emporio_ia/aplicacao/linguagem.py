@@ -2,6 +2,7 @@
 
 import re
 
+from emporio_ia.aplicacao.consulta_catalogo import interpretar_consulta_catalogo
 from emporio_ia.aplicacao.fundamentacao import FinalizacaoModelo
 from emporio_ia.dominio.agente import ChamadaFerramenta
 from emporio_ia.dominio.busca_produtos import normalizar_busca_produto
@@ -64,8 +65,11 @@ def consultas_de_recuperacao(
     palavras = re.findall(r"[^\W_]+", texto)
     consultas = []
     if "catalogo" in fontes:
+        estruturada = interpretar_consulta_catalogo(pergunta)
         identificador = re.search(r"\bproduto\s+(\d+)\b", texto)
-        if identificador:
+        if estruturada is not None:
+            consultas.append(ChamadaFerramenta("buscar_produtos", estruturada))
+        elif identificador:
             consultas.append(
                 ChamadaFerramenta(
                     "consultar_produto", {"identificador": int(identificador[1])}

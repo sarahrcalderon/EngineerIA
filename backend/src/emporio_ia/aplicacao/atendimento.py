@@ -2,6 +2,10 @@ import re
 from collections.abc import Callable
 from typing import Protocol
 
+from emporio_ia.aplicacao.consulta_catalogo import (
+    interpretar_consulta_catalogo,
+    introducao_catalogo,
+)
 from emporio_ia.aplicacao.linguagem import resposta_social
 from emporio_ia.dominio.agente import RespostaAgente
 from emporio_ia.dominio.apresentacao import ProdutoApresentacao
@@ -118,6 +122,7 @@ class ServicoAtendimentoVisitante:
             if referencia not in referencias:
                 referencias.append(referencia)
         produtos = []
+        referencias_produtos: set[str] = set()
         textos = []
         complementos = []
         for evidencia in resposta.evidencias:
@@ -134,8 +139,9 @@ class ServicoAtendimentoVisitante:
                 )
             textos.append(texto)
             if isinstance(apresentacao, ProdutoApresentacao):
-                if apresentacao not in produtos:
+                if dado.referencia not in referencias_produtos:
                     produtos.append(apresentacao)
+                    referencias_produtos.add(dado.referencia)
             else:
                 complementos.append(texto)
         return RespostaVisitante(
@@ -144,4 +150,7 @@ class ServicoAtendimentoVisitante:
             tuple(referencias),
             produtos=tuple(produtos),
             complemento="\n\n".join(complementos),
+            introducao=introducao_catalogo(interpretar_consulta_catalogo(pergunta))
+            if produtos and interpretar_consulta_catalogo(pergunta) is not None
+            else "",
         )

@@ -92,6 +92,7 @@ export function AreaMensagens({
               )}
               {mensagem.produtos?.length ? (
                 <>
+                  {mensagem.introducao && <p>{mensagem.introducao}</p>}
                   <ProdutosResposta produtos={mensagem.produtos} />
                   {mensagem.complemento && (
                     <p className="complemento-resposta">

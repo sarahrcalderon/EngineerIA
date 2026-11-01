@@ -4,6 +4,7 @@ import logging
 from dataclasses import asdict, replace
 from time import perf_counter
 
+from emporio_ia.aplicacao.consulta_catalogo import interpretar_consulta_catalogo
 from emporio_ia.aplicacao.contratos_agente import ContratoFerramentas, ContratoModelo
 from emporio_ia.aplicacao.fundamentacao import (
     FONTES_FERRAMENTAS,
@@ -26,6 +27,7 @@ from emporio_ia.dominio.agente import (
     RespostaAgente,
     TurnoModelo,
 )
+from emporio_ia.dominio.consultas import MAXIMO_PRODUTOS_ATENDIMENTO
 from emporio_ia.dominio.excecoes import ErroDados
 from emporio_ia.dominio.publicacao import ErroPublicacao
 
@@ -149,6 +151,7 @@ class ServicoAgente:
         }
         recuperadas: set[str] = set()
         pendente = None
+        consulta_estruturada = interpretar_consulta_catalogo(pergunta)
         for _ in range(self.configuracao.agente_maximo_etapas):
             tamanho = len(
                 json.dumps(
@@ -227,6 +230,15 @@ class ServicoAgente:
                 break
             mensagens.append(Mensagem("assistant", "", turno.chamadas))
             for solicitada in turno.chamadas:
+                self.ferramentas.validar(solicitada)
+                if consulta_estruturada is not None and solicitada.nome in {
+                    "buscar_produtos",
+                    "consultar_produto",
+                }:
+                    # Critérios explícitos prevalecem sobre uma busca literal do modelo.
+                    solicitada = type(solicitada)(
+                        "buscar_produtos", consulta_estruturada
+                    )
                 chamada = self.ferramentas.validar(solicitada)
                 chave = json.dumps(asdict(chamada), sort_keys=True, ensure_ascii=False)
                 if chave in repeticoes:
@@ -240,7 +252,12 @@ class ServicoAgente:
                 inicio = perf_counter()
                 async with asyncio.timeout(self.configuracao.agente_timeout_ferramenta):
                     dados = await self.ferramentas.executar(chamada)
-                if len(dados) > self.configuracao.agente_maximo_resultados:
+                maximo = (
+                    MAXIMO_PRODUTOS_ATENDIMENTO
+                    if chamada.nome == "buscar_produtos"
+                    else self.configuracao.agente_maximo_resultados
+                )
+                if len(dados) > maximo:
                     raise ErroFerramenta("resultado_excessivo")
                 fonte = FONTES_FERRAMENTAS.get(chamada.nome)
                 if fonte is not None:
@@ -282,6 +299,27 @@ class ServicoAgente:
                     ferramenta=chamada.nome,
                     quantidade=len(dados),
                 )
+                if (
+                    consulta_estruturada is not None
+                    and chamada.nome == "buscar_produtos"
+                    and fontes_necessarias(pergunta) <= {"catalogo"}
+                ):
+                    # A consulta estruturada já selecionou, ordenou e limitou os itens.
+                    # O modelo não deve reduzir nem reordenar esse conjunto verificado.
+                    resposta = finalizar_resposta(
+                        json.dumps(
+                            {
+                                "tipo": "responder" if novas else "sem_evidencias",
+                                "evidencias": [e.identificador for e in novas],
+                            }
+                        ),
+                        pergunta,
+                        evidencias,
+                    )
+                    return replace(
+                        resposta,
+                        fontes_sem_resultado=("catalogo",) if not novas else (),
+                    )
         return RespostaAgente(
             "limite",
             "O limite de etapas ou chamadas foi atingido. Não confirmei a informação.",

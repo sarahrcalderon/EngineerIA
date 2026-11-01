@@ -59,6 +59,39 @@ function envios(consulta: ReturnType<typeof prepararApi>) {
 }
 
 describe('página de atendimento', () => {
+  it('preserva várias mensagens e todos os cards da consulta seguinte', async () => {
+    prepararApi(async () => ({
+      ok: true,
+      json: async () => ({
+        ...resposta,
+        referencias: [
+          { tipo: 'catalogo', titulo: 'Catálogo de produtos', pagina: null },
+        ],
+        produtos: [10000, 20000, 30000].map((preco, i) => ({
+          nome: `Produto fictício ${i + 1}`,
+          preco_centavos: preco,
+          disponivel: true,
+          categoria: 'Guitarras',
+        })),
+        introducao:
+          'Encontrei estas opções com os menores preços do catálogo autorizado:',
+        complemento: '',
+      }),
+    }));
+    render(<App />);
+    digitar('Três produtos mais baratos');
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
+    await waitFor(() =>
+      expect(document.querySelectorAll('.produto-resposta')).toHaveLength(3),
+    );
+    digitar('Cinco opções');
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
+    await waitFor(() =>
+      expect(document.querySelectorAll('.produto-resposta')).toHaveLength(6),
+    );
+    expect(screen.getByText('Três produtos mais baratos')).toBeVisible();
+    expect(screen.getByText('Cinco opções')).toBeVisible();
+  });
   beforeEach(() => {
     vi.stubEnv('VITE_API_URL', 'http://127.0.0.1:8000');
     localStorage.clear();
