@@ -1,9 +1,9 @@
 from datetime import date
 from sqlite3 import Row
 
+from emporio_ia.dominio.busca_produtos import normalizar_busca_produto
 from emporio_ia.dominio.consultas import FiltroProdutos, validar_numero_consulta
 from emporio_ia.dominio.entidades import Produto
-from emporio_ia.dominio.validacao import chave_busca
 from emporio_ia.infraestrutura.banco import BancoSQLite
 
 COLUNAS_PRODUTO = """identificador, preco_centavos, nome, categoria_id, descricao,
@@ -42,8 +42,13 @@ class RepositorioProdutos:
         parametros: list[str | int] = []
         if filtros.nome is not None:
             # instr faz busca literal, inclusive para %, _ e tentativas de SQL.
-            condicoes.append("instr(nome_busca, ?) > 0")
-            parametros.append(chave_busca(filtros.nome.strip()))
+            condicoes.append(
+                "(instr(normalizar_produto(nome_busca), ?) > 0 OR EXISTS "
+                "(SELECT 1 FROM categorias c WHERE c.identificador = "
+                "produtos.categoria_id "
+                "AND instr(normalizar_produto(c.nome), ?) > 0))"
+            )
+            parametros.extend([normalizar_busca_produto(filtros.nome)] * 2)
         for valor, condicao in (
             (filtros.categoria_id, "categoria_id = ?"),
             (filtros.preco_minimo_centavos, "preco_centavos >= ?"),
@@ -61,6 +66,9 @@ class RepositorioProdutos:
         parametros.extend((filtros.limite, filtros.deslocamento))
         # Apenas fragmentos constantes compõem o SQL; todos os valores são parâmetros.
         with self.banco.conectar() as conexao:
+            conexao.create_function(
+                "normalizar_produto", 1, normalizar_busca_produto, deterministic=True
+            )
             linhas = conexao.execute(
                 f"SELECT {COLUNAS_PRODUTO} FROM produtos WHERE {clausula} "
                 "ORDER BY identificador LIMIT ? OFFSET ?",

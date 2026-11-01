@@ -73,7 +73,10 @@ def test_dados_pessoais_bloqueados(pergunta, ferramentas_agente, configuracao_ag
 def test_resposta_direta_limitada(tipo, ferramentas_agente, configuracao_agente):
     modelo = ModeloSimulado(TurnoModelo(json.dumps({"tipo": tipo, "evidencias": []})))
     assert (
-        executar(modelo, ferramentas_agente, configuracao_agente, "Olá").estado == tipo
+        executar(
+            modelo, ferramentas_agente, configuracao_agente, "Preciso de orientação."
+        ).estado
+        == tipo
     )
 
 
@@ -140,7 +143,12 @@ def test_resultado_vazio(ferramentas_agente, configuracao_agente):
         consultar(argumentos={"identificador": 999999}), finalizar("E1")
     )
     assert (
-        executar(modelo, ferramentas_agente, configuracao_agente).estado
+        executar(
+            modelo,
+            ferramentas_agente,
+            configuracao_agente,
+            "Consulte o produto 999999.",
+        ).estado
         == "sem_evidencias"
     )
 

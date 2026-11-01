@@ -1,4 +1,5 @@
 import asyncio
+import json
 from dataclasses import replace
 
 import pytest
@@ -23,6 +24,17 @@ def test_manifesto_ausente_nega_tudo(tmp_path):
     assert not publicacao.permite(
         DadoFerramenta("catalogo", "Texto fictício", "produto:201")
     )
+
+
+def test_publicacao_de_desenvolvimento_nao_migra_para_outro_ambiente(tmp_path):
+    caminho = tmp_path / "local.json"
+    caminho.write_text(
+        json.dumps({"versao": 1, "ambiente": "desenvolvimento", "evidencias": {}}),
+        encoding="utf-8",
+    )
+    assert PublicacaoArquivo(caminho, "desenvolvimento").estado() == "pendente"
+    with pytest.raises(ErroPublicacao):
+        PublicacaoArquivo(caminho, "teste").carregar()
 
 
 @pytest.mark.parametrize(
@@ -59,14 +71,12 @@ def test_hash_vincula_texto_e_fonte():
 def test_filtra_antes_do_modelo(contexto_publico):
     _, ferramentas = contexto_publico
     visitante = FerramentasVisitante(ferramentas, PublicacaoVisitante({}))
-    assert (
+    with pytest.raises(ErroPublicacao):
         asyncio.run(
             visitante.executar(
                 ChamadaFerramenta("consultar_produto", {"identificador": 201})
             )
         )
-        == ()
-    )
     assert {f["function"]["name"] for f in visitante.descrever()} == {
         "buscar_produtos",
         "consultar_produto",

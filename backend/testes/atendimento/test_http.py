@@ -23,6 +23,15 @@ def test_contrato_resposta_e_fonte(api_publica):
     assert "produto:201" not in json.dumps(dados)
 
 
+def test_saudacao_http_sem_inferencia(api_publica):
+    cliente, _, _, modelos = api_publica
+    resposta = cliente.post("/api/atendimento/mensagens", json={"mensagem": "Olá!"})
+    assert resposta.status_code == 200
+    assert resposta.json()["estado"] == "social"
+    assert resposta.json()["referencias"] == []
+    assert not modelos
+
+
 @pytest.mark.parametrize(
     "entrada",
     [
@@ -49,7 +58,8 @@ def test_sem_autorizacao_nao_vaza(api_publica):
     resposta = cliente.post(
         "/api/atendimento/mensagens", json={"mensagem": "Qual o preço do produto 201?"}
     )
-    assert resposta.json()["estado"] == "sem_evidencias"
+    assert resposta.status_code == 503
+    assert resposta.json()["codigo"] == "publicacao_indisponivel"
     assert "10,10" not in resposta.text
     assert "Cordas" not in modelos[-1].recebidas[-1][-1].conteudo
 

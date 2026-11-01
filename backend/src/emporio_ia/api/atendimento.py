@@ -35,6 +35,7 @@ class ReferenciaResposta(BaseModel):
 
 class SaidaMensagem(BaseModel):
     estado: Literal[
+        "social",
         "fundamentada",
         "sem_evidencias",
         "esclarecer",
@@ -97,6 +98,17 @@ async def enviar_mensagem(
             return erro_atendimento(
                 "timeout", "A consulta excedeu o tempo permitido.", 504
             )
+        if resultado.categoria_erro in {
+            "fonte_indisponivel",
+            "publicacao_indisponivel",
+        }:
+            return erro_atendimento(
+                "consulta_indisponivel"
+                if resultado.categoria_erro == "fonte_indisponivel"
+                else "publicacao_indisponivel",
+                "Não foi possível consultar as informações liberadas para atendimento.",
+                503,
+            )
         if resultado.estado == "indisponivel":
             if resultado.categoria_erro in {
                 "resposta_invalida",
@@ -154,5 +166,7 @@ async def consultar_disponibilidade(requisicao: Request) -> dict[str, object]:
         "api": "disponivel",
         "modelo": "acessivel" if acessivel else "indisponivel",
         "homologacao": "pendente",
+        "configuracao": cfg.identificador_fontes,
+        "publicacao": requisicao.app.state.estado_publicacao(),
         "limite_mensagem": min(1000, cfg.agente_maximo_pergunta),
     }

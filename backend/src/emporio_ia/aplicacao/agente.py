@@ -1,7 +1,7 @@
 import asyncio
 import json
 import logging
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from time import perf_counter
 
 from emporio_ia.aplicacao.contratos_agente import ContratoFerramentas, ContratoModelo
@@ -12,6 +12,11 @@ from emporio_ia.aplicacao.fundamentacao import (
     fontes_necessarias,
     pergunta_pessoal,
 )
+from emporio_ia.aplicacao.linguagem import (
+    consultas_de_recuperacao,
+    permite_recuperacao,
+    resposta_social,
+)
 from emporio_ia.configuracao import ConfiguracaoAplicacao
 from emporio_ia.dominio.agente import (
     ErroFerramenta,
@@ -19,8 +24,10 @@ from emporio_ia.dominio.agente import (
     Evidencia,
     Mensagem,
     RespostaAgente,
+    TurnoModelo,
 )
 from emporio_ia.dominio.excecoes import ErroDados
+from emporio_ia.dominio.publicacao import ErroPublicacao
 
 registrador = logging.getLogger("emporio_ia.agente")
 
@@ -77,6 +84,9 @@ class ServicoAgente:
                 "Consultas de clientes e pedidos individuais "
                 "não estão disponíveis nesta fase.",
             )
+        social = resposta_social(pergunta)
+        if social is not None:
+            return RespostaAgente("social", social)
         try:
             async with asyncio.timeout(self.configuracao.agente_timeout_total):
                 resposta = await self._orquestrar(pergunta.strip())
@@ -106,14 +116,24 @@ class ServicoAgente:
                 "A operação excedeu o tempo permitido. Não confirmei a informação.",
                 categoria_erro="timeout",
             )
+        except ErroPublicacao:
+            registrar_operacao(
+                "publicacao", inicio, "erro", categoria="publicacao_indisponivel"
+            )
+            return RespostaAgente(
+                "indisponivel",
+                "As fontes da consulta não estão liberadas para atendimento.",
+                categoria_erro="publicacao_indisponivel",
+            )
         except ErroDados:
             registrar_operacao(
                 "ferramenta", inicio, "erro", categoria="fonte_indisponivel"
             )
             return RespostaAgente(
-                "sem_evidencias",
+                "indisponivel",
                 "Não foi possível consultar as fontes locais "
                 "para confirmar a informação.",
+                categoria_erro="fonte_indisponivel",
             )
 
     async def _orquestrar(self, pergunta: str) -> RespostaAgente:
@@ -123,6 +143,12 @@ class ServicoAgente:
         repeticoes: set[str] = set()
         quantidade_chamadas = 0
         ferramentas = self.ferramentas.descrever()
+        planos = {
+            FONTES_FERRAMENTAS[c.nome]: c
+            for c in consultas_de_recuperacao(pergunta, fontes_necessarias(pergunta))
+        }
+        recuperadas: set[str] = set()
+        pendente = None
         for _ in range(self.configuracao.agente_maximo_etapas):
             tamanho = len(
                 json.dumps(
@@ -150,14 +176,50 @@ class ServicoAgente:
                         for f in ferramentas
                         if FONTES_FERRAMENTAS.get(f["function"]["name"]) in faltantes
                     ]
-                turno = await self.modelo.responder(
-                    tuple(mensagens), [] if concluir else disponiveis
-                )
+                operacao = "geracao"
+                if pendente is not None:
+                    turno = TurnoModelo("", (pendente,))
+                    pendente = None
+                    operacao = "recuperacao"
+                else:
+                    turno = await self.modelo.responder(
+                        tuple(mensagens), [] if concluir else disponiveis
+                    )
             registrar_operacao(
-                "geracao", inicio_modelo, "concluida", quantidade=len(turno.chamadas)
+                operacao, inicio_modelo, "concluida", quantidade=len(turno.chamadas)
             )
             if not turno.chamadas:
-                return finalizar_resposta(turno.conteudo, pergunta, evidencias)
+                recuperacao = (
+                    [
+                        c
+                        for fonte, c in planos.items()
+                        if fonte in faltantes and fonte not in recuperadas
+                    ]
+                    if permite_recuperacao(turno.conteudo)
+                    else []
+                )
+                if recuperacao:
+                    recuperadas.update(FONTES_FERRAMENTAS[c.nome] for c in recuperacao)
+                    turno = TurnoModelo("", tuple(recuperacao))
+                    registrar_operacao(
+                        "recuperacao",
+                        inicio_modelo,
+                        "iniciada",
+                        quantidade=len(recuperacao),
+                    )
+                else:
+                    resposta = finalizar_resposta(turno.conteudo, pergunta, evidencias)
+                    if resposta.estado == "sem_evidencias":
+                        resposta = replace(
+                            resposta,
+                            fontes_sem_resultado=tuple(
+                                sorted(
+                                    fontes_consultadas
+                                    - {e.dado.fonte for e in evidencias}
+                                )
+                            ),
+                        )
+                    return resposta
             if (
                 quantidade_chamadas + len(turno.chamadas)
                 > self.configuracao.agente_maximo_chamadas
@@ -183,6 +245,14 @@ class ServicoAgente:
                 fonte = FONTES_FERRAMENTAS.get(chamada.nome)
                 if fonte is not None:
                     fontes_consultadas.add(fonte)
+                    if not dados and fonte not in recuperadas and fonte in planos:
+                        alternativa = self.ferramentas.validar(planos[fonte])
+                        chave_alternativa = json.dumps(
+                            asdict(alternativa), sort_keys=True, ensure_ascii=False
+                        )
+                        if chave_alternativa not in repeticoes:
+                            pendente = alternativa
+                            recuperadas.add(fonte)
                 novas = [
                     Evidencia(f"E{len(evidencias) + indice + 1}", dado)
                     for indice, dado in enumerate(dados)

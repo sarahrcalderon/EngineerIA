@@ -57,3 +57,4 @@ class RespostaAgente:
     referencias: tuple[str, ...] = ()
     evidencias: tuple[Evidencia, ...] = ()
     categoria_erro: str | None = None
+    fontes_sem_resultado: tuple[str, ...] = ()

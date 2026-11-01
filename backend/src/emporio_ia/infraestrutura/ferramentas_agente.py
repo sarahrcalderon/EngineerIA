@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 from emporio_ia.aplicacao.catalogo import ServicoCatalogo
 from emporio_ia.aplicacao.documentos import ServicoRecuperacao
 from emporio_ia.dominio.agente import ChamadaFerramenta, DadoFerramenta, ErroFerramenta
+from emporio_ia.dominio.busca_produtos import normalizar_busca_produto
 from emporio_ia.dominio.consultas import FiltroProdutos, centavos_para_decimal
 from emporio_ia.dominio.entidades import Produto, Promocao
 
@@ -16,15 +17,17 @@ class ArgumentosBase(BaseModel):
 
 
 class ArgumentosBusca(ArgumentosBase):
-    termo: str = Field(min_length=1, max_length=200)
+    termo: str | None = Field(default=None, min_length=1, max_length=200)
     limite: int | None = Field(default=None, ge=1, le=20)
 
     @field_validator("termo")
     @classmethod
-    def normalizar_termo(cls, texto: str) -> str:
+    def normalizar_termo(cls, texto: str | None) -> str | None:
+        if texto is None:
+            return None
         if not texto.strip() or "\x00" in texto:
             raise ValueError("Termo inválido.")
-        return texto.strip().casefold()
+        return normalizar_busca_produto(texto)
 
 
 class ArgumentosProduto(ArgumentosBase):
@@ -47,7 +50,9 @@ class ArgumentosPoliticas(ArgumentosBase):
 class FerramentasLeitura:
     DEFINICOES: ClassVar[dict[str, tuple[str, type[ArgumentosBase]]]] = {
         "buscar_produtos": (
-            "Buscar produtos pelo nome, com preço cadastrado e disponibilidade.",
+            "Listar produtos sem termo, ou pesquisar palavras do nome e categoria. "
+            "Use só o instrumento buscado, não a frase inteira. "
+            "Retorna preços e disponibilidade.",
             ArgumentosBusca,
         ),
         "consultar_produto": (
@@ -88,6 +93,12 @@ class FerramentasLeitura:
             for campo in parametros["properties"].values():
                 campo.pop("title", None)
             # Parâmetros opcionais podem ser omitidos, sem exigir escolha int/null.
+            if "termo" in parametros["properties"]:
+                parametros["properties"]["termo"] = {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                }
             if "limite" in parametros["properties"]:
                 parametros["properties"]["limite"] = {
                     "type": "integer",

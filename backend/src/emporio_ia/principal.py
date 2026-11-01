@@ -52,7 +52,10 @@ def criar_aplicacao(configuracao: ConfiguracaoAplicacao | None = None) -> FastAP
         description="Fundação técnica do assistente do Empório da Música.",
     )
     aplicacao.state.configuracao = configuracao
-    publicacao = PublicacaoArquivo(configuracao.caminho_publicacao)
+    publicacao = PublicacaoArquivo(
+        configuracao.caminho_publicacao, configuracao.ambiente
+    )
+    aplicacao.state.estado_publicacao = publicacao.estado
     aplicacao.state.atendimento_visitante = ServicoAtendimentoVisitante(
         lambda politica: ServicoAgente(
             AdaptadorOllama(configuracao),

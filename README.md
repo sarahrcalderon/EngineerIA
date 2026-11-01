@@ -348,6 +348,8 @@ Na Fase 5 foi realizada inspeção em Edge headless nos tamanhos desktop e móve
 
 A [Fase 6.1](docs/relatorios/fase6-1-correcao-falhas.md) corrigiu seleção/finalização estruturadas, continuidade das consultas e distinção de erros HTTP. A matriz real e as repetições passaram no perfil documentado. O [guia de execução](docs/entrega/execucao-local.md) registra a configuração homologada; o layout do chat foi preservado.
 
+A [correção do atendimento conversacional](docs/relatorios/correcao-atendimento-conversacional.md) trata a diferença entre as autorizações fictícias dos testes e a publicação local, saudações sem inferência, pesquisa por categoria/plural e recuperação limitada de consultas. A liberação operacional documentada foi autorizada exclusivamente para desenvolvimento local; não acompanha o repositório.
+
 A interface usa um painel clássico de atendimento: saudação em balão, mensagens da loja à esquerda e do cliente à direita, cabeçalho fixo na estrutura do painel e campo expansível no rodapé. As sugestões são discretas e aparecem antes do primeiro envio. Veja o [relatório da refatoração visual](docs/relatorios/fase5-chat-classico.md).
 
 Com o ambiente Python e as dependências existentes preparados, inicie o backend na raiz:

@@ -48,6 +48,7 @@ export async function enviarPergunta(
     !valor.resposta.trim() ||
     valor.resposta.length > 16000 ||
     ![
+      'social',
       'fundamentada',
       'sem_evidencias',
       'esclarecer',
@@ -96,6 +97,10 @@ export function mensagemErro(erro: unknown): string {
       return 'Há muitas consultas ou outra resposta em andamento. Aguarde um pouco e tente novamente.';
     if (erro.codigo === 'modelo_indisponivel')
       return 'O modelo local está indisponível. Tente novamente mais tarde.';
+    if (erro.codigo === 'consulta_indisponivel')
+      return 'Não foi possível consultar as informações da loja agora. Tente novamente mais tarde.';
+    if (erro.codigo === 'publicacao_indisponivel')
+      return 'As informações da loja ainda não estão liberadas para atendimento. Tente novamente mais tarde.';
     if (erro.codigo === 'geracao_interrompida')
       return 'O atendimento atingiu o limite de geração. Tente uma pergunta mais específica.';
     if (erro.codigo === 'resposta_modelo_invalida')

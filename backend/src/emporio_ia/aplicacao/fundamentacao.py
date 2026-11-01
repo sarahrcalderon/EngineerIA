@@ -36,12 +36,15 @@ def fontes_necessarias(pergunta: str) -> set[str]:
     texto = chave_busca(pergunta)
     fontes: set[str] = set()
     if re.search(
-        r"\b(preco|precos|valor|custa|estoque|disponibilidade|disponivel|produto|produtos)\b",
+        r"\b(preco|precos|valor|valores|custa|custam|estoque|disponibilidade|disponivel|"
+        r"produto|produtos|instrumento|instrumentos|catalogo|modelos|vendem|comprar|"
+        r"violao|violoes|guitarra|guitarras|teclado|teclados)\b",
         texto,
     ):
         fontes.add("catalogo")
     if re.search(
-        r"\b(politica|politicas|prazo|troca|trocas|devolucao|garantia|frete|entrega|pagamento)\b",
+        r"\b(politica|politicas|prazo|troca|trocas|trocar|devolucao|devolucoes|devolver|"
+        r"garantia|garantias|frete|entrega|entregas|pagamento|pagamentos)\b",
         texto,
     ):
         fontes.add("politicas")

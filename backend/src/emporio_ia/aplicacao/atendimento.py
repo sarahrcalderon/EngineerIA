@@ -2,6 +2,7 @@ import re
 from collections.abc import Callable
 from typing import Protocol
 
+from emporio_ia.aplicacao.linguagem import resposta_social
 from emporio_ia.dominio.agente import RespostaAgente
 from emporio_ia.dominio.publicacao import (
     ErroPublicacao,
@@ -48,6 +49,9 @@ class ServicoAtendimentoVisitante:
         self.carregar_publicacao = carregar_publicacao
 
     async def atender(self, pergunta: str) -> RespostaVisitante:
+        social = resposta_social(pergunta)
+        if social is not None:
+            return RespostaVisitante("social", social)
         publicacao = self.carregar_publicacao()
         resposta = await self.criar_agente(publicacao).processar_pergunta(pergunta)
         if resposta.estado == "indisponivel":
@@ -62,8 +66,33 @@ class ServicoAtendimentoVisitante:
                 if resposta.estado in TEXTOS_VISITANTE
                 else "sem_evidencias"
             )
+            texto = TEXTOS_VISITANTE[estado]
+            if estado == "sem_evidencias" and resposta.fontes_sem_resultado:
+                fontes = set(resposta.fontes_sem_resultado)
+                if fontes == {"catalogo"}:
+                    texto = (
+                        "Não localizei produtos correspondentes no catálogo "
+                        "consultado. Pode tentar outro nome ou categoria?"
+                    )
+                elif fontes == {"politicas"}:
+                    texto = (
+                        "Não consegui confirmar essa regra específica nas "
+                        "políticas consultadas. Pode detalhar o assunto?"
+                    )
+                elif fontes == {"promocoes"}:
+                    texto = (
+                        "Não localizei promoções cadastradas para essa "
+                        "consulta. Não posso confirmar descontos vigentes "
+                        "sem evidência temporal."
+                    )
+                else:
+                    texto = (
+                        "Não consegui confirmar todas as informações "
+                        "solicitadas nas fontes consultadas. "
+                        "Pode detalhar sua pergunta?"
+                    )
             return RespostaVisitante(
-                estado, TEXTOS_VISITANTE[estado], categoria_erro=resposta.categoria_erro
+                estado, texto, categoria_erro=resposta.categoria_erro
             )
         atual = self.carregar_publicacao()
         if not resposta.evidencias or any(

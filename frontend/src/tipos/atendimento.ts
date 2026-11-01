@@ -1,4 +1,5 @@
 export type EstadoResposta =
+  | 'social'
   | 'fundamentada'
   | 'sem_evidencias'
   | 'esclarecer'

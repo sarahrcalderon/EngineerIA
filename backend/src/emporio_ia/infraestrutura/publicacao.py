@@ -13,6 +13,7 @@ from emporio_ia.dominio.publicacao import ErroPublicacao, PublicacaoVisitante
 class ManifestoPublicacao(BaseModel):
     model_config = ConfigDict(strict=True, extra="forbid", hide_input_in_errors=True)
     versao: Literal[1]
+    ambiente: Literal["desenvolvimento", "teste"] | None = None
     evidencias: dict[str, str] = Field(max_length=500)
 
     @field_validator("evidencias")
@@ -27,8 +28,9 @@ class ManifestoPublicacao(BaseModel):
 
 
 class PublicacaoArquivo:
-    def __init__(self, caminho: Path) -> None:
+    def __init__(self, caminho: Path, ambiente: str = "desenvolvimento") -> None:
         self.caminho = caminho
+        self.ambiente = ambiente
 
     def carregar(self) -> PublicacaoVisitante:
         try:
@@ -37,6 +39,8 @@ class PublicacaoArquivo:
             if len(conteudo) > 65536:
                 raise ErroPublicacao("Manifesto de publicação inválido.")
             manifesto = ManifestoPublicacao.model_validate(json.loads(conteudo))
+            if manifesto.ambiente is not None and manifesto.ambiente != self.ambiente:
+                raise ErroPublicacao("A publicação não está liberada neste ambiente.")
             return PublicacaoVisitante(manifesto.evidencias)
         except FileNotFoundError:
             return PublicacaoVisitante({})
@@ -44,6 +48,12 @@ class PublicacaoArquivo:
             raise ErroPublicacao(
                 "Não foi possível validar a publicação local."
             ) from None
+
+    def estado(self) -> str:
+        try:
+            return "configurada" if self.carregar().autorizadas else "pendente"
+        except ErroPublicacao:
+            return "indisponivel"
 
 
 class FerramentasVisitante:
@@ -63,4 +73,9 @@ class FerramentasVisitante:
 
     async def executar(self, chamada: ChamadaFerramenta) -> tuple[DadoFerramenta, ...]:
         dados = await self.ferramentas.executar(chamada)
-        return tuple(dado for dado in dados if self.publicacao.permite(dado))
+        autorizados = tuple(dado for dado in dados if self.publicacao.permite(dado))
+        if dados and not autorizados:
+            raise ErroPublicacao(
+                "As fontes da consulta não foram liberadas para atendimento."
+            )
+        return autorizados

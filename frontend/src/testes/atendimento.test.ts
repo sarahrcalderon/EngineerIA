@@ -36,6 +36,21 @@ describe('transporte de atendimento', () => {
     );
   });
 
+  it('aceita saudação social sem referências comerciais', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          ...respostaValida,
+          estado: 'social',
+          resposta: 'Olá!',
+        }),
+      }),
+    );
+    expect((await enviarPergunta('Olá')).estado).toBe('social');
+  });
+
   it.each([
     {},
     { ...respostaValida, estado: 'inventado' },

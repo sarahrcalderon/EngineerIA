@@ -23,6 +23,12 @@ O operador deve revisar as fontes localmente e decidir quais evidências comerci
 
 O filtro aplica-se antes de enviar resultados ao modelo. A resposta final revalida a autorização atual para permitir revogação durante a consulta. A aplicação reconstrói respostas a partir das evidências aprovadas; não publica prosa livre do modelo. Referências HTTP têm somente tipo, título seguro e página documental real, sem caminhos, fingerprints, identificadores internos ou pontuação BM25.
 
+O manifesto aceita `ambiente` opcional (`desenvolvimento` ou `teste`); quando informado, deve corresponder à configuração da aplicação. Uma liberação exclusiva de desenvolvimento não pode ser usada em outro ambiente. Quando há resultados privados e nenhum foi aprovado, a consulta retorna `503 publicacao_indisponivel`, em vez de aparentar ausência no catálogo. Falha de acesso ao banco retorna `503 consulta_indisponivel`.
+
+Saudações, agradecimentos e despedidas isoladas retornam estado `social`, sem carregar manifesto, consultar banco ou chamar Ollama. Perguntas comerciais, inclusive acompanhadas de saudação, percorrem o agente e a validação integral de evidências. `buscar_produtos` permite omitir `termo` para listar produtos; pesquisa nome e categoria com normalização de acentos e plural, preservando a leitura do banco original. A recuperação de seleção omitida ou consulta vazia usa apenas as cinco ferramentas existentes, com argumentos validados e os mesmos limites de etapas, chamadas, contexto e tempo. Não recupera falhas de infraestrutura nem aceita JSON inválido ou evidências inexistentes.
+
+`GET /api/atendimento/disponibilidade` inclui `publicacao` e um identificador curto `configuracao`, calculado sobre ambiente, caminhos resolvidos, URL e modelo. Ele permite comparar a instância ativa com o diagnóstico local sem publicar caminhos ou conteúdo. `configurada` indica manifesto não vazio e válido; não comprova que todas as consultas possíveis estão liberadas.
+
 ## Contratos e limites
 
 - `GET /api/saude`: processo da API; não mede inferência.

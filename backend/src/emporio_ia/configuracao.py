@@ -45,6 +45,21 @@ class ConfiguracaoAplicacao(BaseSettings):
     atendimento_leitura_timeout: float = Field(default=10, gt=0, le=30)
     atendimento_disponibilidade_timeout: float = Field(default=5, gt=0, le=15)
 
+    @property
+    def identificador_fontes(self) -> str:
+        import hashlib
+        import json
+
+        valores = [
+            self.ambiente,
+            str(self.caminho_banco),
+            str(self.caminho_indice_politicas),
+            str(self.caminho_publicacao),
+            self.ollama_url,
+            self.ollama_modelo,
+        ]
+        return hashlib.sha256(json.dumps(valores).encode()).hexdigest()[:16]
+
     @field_validator("ollama_url")
     @classmethod
     def validar_ollama_local(cls, valor: str) -> str:
