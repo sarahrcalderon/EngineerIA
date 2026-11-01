@@ -43,7 +43,7 @@ def executar_chat(
                 or {
                     "message": {
                         "role": "assistant",
-                        "content": '{"tipo":"esclarecer","evidencias":[]}',
+                        "content": '{"evidencias":[]}',
                     },
                     "done": True,
                 }
@@ -101,7 +101,7 @@ def test_disponibilidade_verifica_metadados_sem_gerar_resposta():
 
 
 def test_interpreta_ferramentas():
-    turno, _ = executar_chat(
+    turno = AdaptadorOllama(ConfiguracaoAplicacao())._interpretar(
         {
             "done": True,
             "message": {

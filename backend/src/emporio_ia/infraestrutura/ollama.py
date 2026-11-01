@@ -3,13 +3,19 @@ import json
 
 import httpx
 
-from emporio_ia.aplicacao.fundamentacao import FinalizacaoModelo
 from emporio_ia.configuracao import ConfiguracaoAplicacao
 from emporio_ia.dominio.agente import (
     ChamadaFerramenta,
     ErroModelo,
     Mensagem,
     TurnoModelo,
+)
+from emporio_ia.infraestrutura.selecao_ollama import (
+    SelecaoEvidencias,
+    formato_selecao,
+    instrucoes_selecao,
+    interpretar_evidencias,
+    interpretar_selecao,
 )
 
 
@@ -98,11 +104,6 @@ class AdaptadorOllama:
                     "role": mensagem.papel,
                     "content": mensagem.conteudo,
                 }
-                if (
-                    mensagem.papel == "system"
-                    and self.configuracao.ollama_modelo.startswith("qwen3:")
-                ):
-                    item["content"] = mensagem.conteudo + "\n/no_think"
                 if mensagem.chamadas:
                     item["tool_calls"] = [
                         {
@@ -116,11 +117,15 @@ class AdaptadorOllama:
                 if mensagem.ferramenta is not None:
                     item["tool_name"] = mensagem.ferramenta
                 historico.append(item)
+            if ferramentas:
+                # O esquema restringe a geração desde o primeiro token, antes
+                # de executar qualquer ferramenta; não depende de XML nativo.
+                historico[0]["content"] += instrucoes_selecao(ferramentas)
             dados: dict[str, object] = {
                 "model": self.configuracao.ollama_modelo,
                 "stream": False,
                 "messages": historico,
-                "tools": ferramentas,
+                "tools": [],
                 "options": {
                     "temperature": self.configuracao.ollama_temperatura,
                     "num_predict": self.configuracao.ollama_tokens,
@@ -129,18 +134,19 @@ class AdaptadorOllama:
             }
             if "thinking" in capacidades:
                 dados["think"] = False
-            if not ferramentas:
-                formato = FinalizacaoModelo.model_json_schema()
+            if ferramentas:
+                dados["format"] = formato_selecao(ferramentas)
+            else:
+                historico[0]["content"] += (
+                    "\nETAPA DE SELEÇÃO DE EVIDÊNCIAS: identifique os IDs dos "
+                    "trechos que tratam do assunto perguntado. "
+                    "Não escreva uma resposta "
+                    "nem peça esclarecimento nesta etapa. Se nenhum trecho for "
+                    "pertinente, selecione lista vazia. Retorne somente JSON "
+                    'no formato {"evidencias":["E1"]}.'
+                )
+                formato = SelecaoEvidencias.model_json_schema()
                 propriedades = formato["properties"]
-                propriedades["tipo"] = {
-                    "type": "string",
-                    "enum": [
-                        "responder",
-                        "sem_evidencias",
-                        "esclarecer",
-                        "fora_escopo",
-                    ],
-                }
                 identificadores = []
                 for mensagem in mensagens:
                     if mensagem.papel == "tool":
@@ -150,16 +156,25 @@ class AdaptadorOllama:
                 if identificadores:
                     propriedades["evidencias"]["items"]["enum"] = identificadores
                 dados["format"] = formato
+            if self.configuracao.ollama_modelo.startswith("qwen3:"):
+                historico[0]["content"] += "\n/no_think"
             if (
                 len(json.dumps(dados, ensure_ascii=False).encode())
                 > self.configuracao.agente_contexto_bytes
             ):
                 raise ErroModelo("contexto_excessivo")
             retorno = await self._requisitar(cliente, "POST", "/api/chat", dados)
-        return self._interpretar(retorno)
+        turno = self._interpretar(retorno)
+        return (
+            interpretar_selecao(turno, ferramentas)
+            if ferramentas
+            else interpretar_evidencias(turno)
+        )
 
     def _interpretar(self, retorno: dict[str, object]) -> TurnoModelo:
         mensagem = retorno.get("message")
+        if retorno.get("done_reason") == "length":
+            raise ErroModelo("geracao_interrompida")
         if (
             retorno.get("done") is not True
             or retorno.get("done_reason") not in {None, "stop"}

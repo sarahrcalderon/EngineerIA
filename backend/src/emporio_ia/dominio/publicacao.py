@@ -67,3 +67,4 @@ class RespostaVisitante:
     estado: str
     resposta: str
     referencias: tuple[ReferenciaVisitante, ...] = ()
+    categoria_erro: str | None = None

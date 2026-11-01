@@ -145,6 +145,24 @@ def test_resultado_vazio(ferramentas_agente, configuracao_agente):
     )
 
 
+def test_combinada_nao_confirma_fonte_consultada_sem_evidencia(
+    ferramentas_agente, configuracao_agente
+):
+    modelo = ModeloSimulado(
+        consultar(),
+        consultar("buscar_politicas", {"pergunta": "garantia inexistente"}),
+        finalizar("E1"),
+    )
+    resposta = executar(
+        modelo,
+        ferramentas_agente,
+        configuracao_agente,
+        "Qual o preço do produto 201 e a política de garantia?",
+    )
+    assert resposta.estado == "sem_evidencias"
+    assert resposta.referencias == ()
+
+
 def test_combinada_exige_duas_fontes(ferramentas_agente, configuracao_agente):
     pergunta = "Qual o preço do produto 201 e a política de troca?"
     parcial = ModeloSimulado(consultar(), finalizar("E1"))

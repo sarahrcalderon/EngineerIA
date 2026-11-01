@@ -282,3 +282,33 @@ def test_envio_lento_nao_ocupa_agente(api_publica):
     assert enviadas[0]["status"] == 408
     assert not entrou and not modelos
     assert app.state.limites_atendimento.ativas == 0
+
+
+@pytest.mark.parametrize(
+    ("categoria", "status", "codigo"),
+    [
+        ("conexao", 503, "modelo_indisponivel"),
+        ("modelo_inexistente", 503, "modelo_indisponivel"),
+        ("timeout", 504, "timeout"),
+        ("resposta_invalida", 502, "resposta_modelo_invalida"),
+        ("geracao_interrompida", 502, "geracao_interrompida"),
+        ("contexto_excessivo", 502, "resposta_modelo_invalida"),
+        ("resposta_excessiva", 502, "resposta_modelo_invalida"),
+    ],
+)
+def test_falhas_do_modelo_preservam_semantica_http(
+    api_publica, categoria, status, codigo
+):
+    cliente, app, _, _ = api_publica
+
+    class Falha:
+        async def atender(self, pergunta):
+            return RespostaVisitante(
+                "indisponivel", "detalhe-confidencial", categoria_erro=categoria
+            )
+
+    app.state.atendimento_visitante = Falha()
+    resposta = cliente.post("/api/atendimento/mensagens", json={"mensagem": "Teste"})
+    assert resposta.status_code == status
+    assert resposta.json()["codigo"] == codigo
+    assert "detalhe-confidencial" not in resposta.text

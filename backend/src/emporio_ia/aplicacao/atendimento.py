@@ -54,6 +54,7 @@ class ServicoAtendimentoVisitante:
             return RespostaVisitante(
                 "indisponivel",
                 "O modelo local está indisponível. Tente novamente mais tarde.",
+                categoria_erro=resposta.categoria_erro,
             )
         if resposta.estado != "fundamentada":
             estado = (
@@ -61,7 +62,9 @@ class ServicoAtendimentoVisitante:
                 if resposta.estado in TEXTOS_VISITANTE
                 else "sem_evidencias"
             )
-            return RespostaVisitante(estado, TEXTOS_VISITANTE[estado])
+            return RespostaVisitante(
+                estado, TEXTOS_VISITANTE[estado], categoria_erro=resposta.categoria_erro
+            )
         atual = self.carregar_publicacao()
         if not resposta.evidencias or any(
             not atual.permite(e.dado) for e in resposta.evidencias

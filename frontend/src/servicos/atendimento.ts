@@ -96,6 +96,10 @@ export function mensagemErro(erro: unknown): string {
       return 'Há muitas consultas ou outra resposta em andamento. Aguarde um pouco e tente novamente.';
     if (erro.codigo === 'modelo_indisponivel')
       return 'O modelo local está indisponível. Tente novamente mais tarde.';
+    if (erro.codigo === 'geracao_interrompida')
+      return 'O atendimento atingiu o limite de geração. Tente uma pergunta mais específica.';
+    if (erro.codigo === 'resposta_modelo_invalida')
+      return 'O atendimento recebeu uma resposta inválida do modelo. Tente novamente.';
     if (erro.codigo === 'resposta_invalida')
       return 'A API retornou uma resposta inválida. Tente novamente.';
     if (erro.status === 504 || erro.status === 408)

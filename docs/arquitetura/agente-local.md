@@ -33,7 +33,11 @@ Não há container de agentes, SDK de Ollama, cache de conversas ou execução d
 
 ## Protocolo local
 
-O adaptador usa `/api/version`, `/api/show` e `/api/chat` documentados pelo Ollama. Antes de cada turno, valida a presença de versão, capacidades de ferramentas e ausência de indicação de modelo remoto. O chat usa ferramentas nativas, `stream=false`, opções configuradas e `think=false` quando o modelo declara suporte a thinking. Retorna apenas conteúdo e solicitações tipadas; formatos malformados ou geração interrompida por limite não são tratados como sucesso.
+O adaptador usa `/api/version`, `/api/show` e `/api/chat` documentados pelo Ollama. Antes de cada turno, valida a presença de versão, capacidades de ferramentas e ausência de indicação de modelo remoto. Desde a Fase 6.1, a seleção usa JSON Schema em `format`, com uma alternativa por ferramenta autorizada e seu esquema de argumentos. O transporte converte somente objetos válidos em `ChamadaFerramenta`; não depende de geração livre de XML/tool_calls. São mantidos `stream=false`, opções configuradas e `think=false` quando suportado. Geração interrompida não é sucesso.
+
+A aplicação distingue fonte consultada de evidência obtida. Ao consultar uma fonte, oferece as ferramentas das fontes restantes; resultado vazio permite finalizar sem repetição, mas não autoriza confirmação. Na etapa final, o modelo seleciona apenas IDs pertinentes ou lista vazia. O adaptador traduz essa seleção para o contrato interno de finalização, e a aplicação continua exigindo IDs existentes e todas as fontes necessárias. Não há resposta livre nem conclusão comercial por mero sucesso de uma consulta.
+
+O modelo recebe projeção de ID, fonte e texto; hashes, referência e BM25 permanecem no servidor para autorização e apresentação verificável. A correção não alterou FTS5, segmentação, índice, PDF ou os limites de contexto/geração. Consulte o [relatório corretivo](../relatorios/fase6-1-correcao-falhas.md).
 
 São aceitas somente URLs HTTP de loopback, com `localhost` convertido para IP local. Não há credenciais, caminhos arbitrários, proxies de ambiente ou redirecionamentos. Nomes com `cloud` e metadados remotos são recusados. A instalação local do servidor continua sendo uma fronteira de confiança; o adaptador não consegue provar o comportamento de um servidor comprometido. A operação documentada usa `OLLAMA_NO_CLOUD=1` no processo Ollama.
 

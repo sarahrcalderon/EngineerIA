@@ -93,7 +93,24 @@ async def enviar_mensagem(
             if desconexao in concluidas:
                 return erro_atendimento("cancelada", "Consulta cancelada.", 499)
             resultado = await tarefa
+        if resultado.categoria_erro == "timeout":
+            return erro_atendimento(
+                "timeout", "A consulta excedeu o tempo permitido.", 504
+            )
         if resultado.estado == "indisponivel":
+            if resultado.categoria_erro in {
+                "resposta_invalida",
+                "geracao_interrompida",
+                "contexto_excessivo",
+                "resposta_excessiva",
+            }:
+                return erro_atendimento(
+                    "geracao_interrompida"
+                    if resultado.categoria_erro == "geracao_interrompida"
+                    else "resposta_modelo_invalida",
+                    "O modelo não concluiu uma resposta válida. Tente novamente.",
+                    502,
+                )
             return erro_atendimento(
                 "modelo_indisponivel", "O modelo local está indisponível.", 503
             )

@@ -1,6 +1,6 @@
 # Execução local e reprodução da homologação
 
-Perfil verificado em 01/11/2026: Windows, Python 3.12.2, Node 24.21.0, Ollama 0.40.13 e `qwen3:4b` Q4_K_M. A homologação comercial está incompleta; não apresentar a demonstração como atendimento pronto para uso real.
+Perfil verificado em 01/11/2026: Windows, Python 3.12.2, Node 24.21.0, Ollama 0.40.13 e `qwen3:4b` Q4_K_M. A correção da Fase 6.1 aprovou a matriz e as repetições documentadas no [relatório corretivo](../relatorios/fase6-1-correcao-falhas.md). Isso não certifica produção irrestrita nem substitui revisão de evidências reais e testes em dispositivos físicos.
 
 ## Preparar o ambiente
 
@@ -22,16 +22,16 @@ No Windows, o executável observado é `%LOCALAPPDATA%\Programs\Ollama\ollama.ex
 
 Se o modelo não estiver instalado, `ollama pull qwen3:4b` é uma ação manual de download; não foi executada nesta fase. Não substitua o modelo sem revisar a homologação.
 
-Não inicie uma segunda instância se já houver servidor ativo. Para reproduzir o perfil comparativo nativo usado nesta fase, em terminal próprio:
+Não inicie uma segunda instância se já houver servidor ativo. Para reproduzir o perfil da correção validada na Fase 6.1, em terminal próprio:
 
 ```powershell
 $env:OLLAMA_HOST='127.0.0.1:11434'
 $env:OLLAMA_NO_CLOUD='1'
-$env:OLLAMA_GO_TEMPLATE='false'
+$env:OLLAMA_GO_TEMPLATE='true'
 & "$env:LOCALAPPDATA/Programs/Ollama/ollama.exe" serve
 ```
 
-`OLLAMA_GO_TEMPLATE=false` seleciona o template nativo do GGUF nesta versão. Foram observadas falhas tanto nesse caminho como no padrão Go; esta variável **não é uma correção comprovada**. Ela deve pertencer ao processo Ollama, e não apenas ao Python. Não habilite logs de corpo de requisição nem nuvem. Não altere os arquivos do modelo como parte desses comandos.
+Na Fase 6, a troca isolada entre Go e GGUF não resolveu as falhas. A Fase 6.1 mantém o caminho Go e passa a usar `format` com JSON Schema para selecionar uma ferramenta por etapa e depois IDs de evidência. O servidor executa as mesmas ferramentas validadas; não interpreta prosa livre ou XML gerado como comando. As variáveis acima pertencem ao processo Ollama, não apenas ao Python. O caminho GGUF não foi rehomologado com a correção. Não habilite logs de corpo de requisição nem nuvem, nem altere os arquivos do modelo.
 
 ## Aplicação operacional
 
@@ -87,7 +87,17 @@ backend/.venv/Scripts/python.exe -m pytest backend/testes/atendimento/test_ollam
 Remove-Item Env:EMPORIO_TESTAR_OLLAMA_REAL
 ```
 
-Essa suíte pode falhar na instalação avaliada e deve retornar falha quando os critérios não forem atendidos. Os nove testes são pulados na execução comum, sem disfarçar uma aprovação real. O XML contém somente casos fictícios e metadados; mantenha-o em armazenamento ignorado.
+Essa suíte deve retornar falha quando os critérios não forem atendidos. Os onze testes são pulados na execução comum, sem disfarçar uma aprovação real. O XML contém somente casos fictícios e metadados; mantenha-o em armazenamento ignorado. Para repetir os quatro cenários antes instáveis três vezes, mantendo o modelo/servidor do perfil acima:
+
+```powershell
+$env:EMPORIO_TESTAR_OLLAMA_REAL='1'
+$env:EMPORIO_REPETICOES_OLLAMA='3'
+backend/.venv/Scripts/python.exe -m pytest backend/testes/atendimento/test_ollama_real.py -q -k 'preco or promocoes or politicas or combinada' -o junit_family=legacy --junitxml=.local/ollama-repeticoes.xml
+Remove-Item Env:EMPORIO_REPETICOES_OLLAMA
+Remove-Item Env:EMPORIO_TESTAR_OLLAMA_REAL
+```
+
+O número de repetições aceita de 1 a 5 e afeta apenas testes. Defaults operacionais continuam em 512 tokens, contexto 8192, quatro etapas, seis chamadas e 120 segundos totais. Erros de geração/protocolo retornam 502, timeout 504 e indisponibilidade de infraestrutura 503; abstenção e recusa válidas continuam resultados funcionais em 200.
 
 No frontend: `npm.cmd test`, `npm.cmd run typecheck`, `npm.cmd run lint`, `npm.cmd run format:check` e `npm.cmd run build`. Para incluir as duas integrações HTTP, mantenha o backend de homologação ativo e defina `EMPORIO_TESTAR_INTEGRACAO=1` e `VITE_API_URL=http://127.0.0.1:8005` antes de `npm.cmd test`.
 

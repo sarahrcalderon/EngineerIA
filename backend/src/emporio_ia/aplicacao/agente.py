@@ -6,6 +6,7 @@ from time import perf_counter
 
 from emporio_ia.aplicacao.contratos_agente import ContratoFerramentas, ContratoModelo
 from emporio_ia.aplicacao.fundamentacao import (
+    FONTES_FERRAMENTAS,
     INSTRUCOES_AGENTE,
     finalizar_resposta,
     fontes_necessarias,
@@ -87,6 +88,7 @@ class ServicoAgente:
                 "indisponivel",
                 "O modelo local está indisponível ou retornou uma resposta inválida. "
                 "Verifique o Ollama e o modelo configurado.",
+                categoria_erro=erro.categoria,
             )
         except ErroFerramenta as erro:
             registrar_operacao(
@@ -102,6 +104,7 @@ class ServicoAgente:
             return RespostaAgente(
                 "limite",
                 "A operação excedeu o tempo permitido. Não confirmei a informação.",
+                categoria_erro="timeout",
             )
         except ErroDados:
             registrar_operacao(
@@ -116,6 +119,7 @@ class ServicoAgente:
     async def _orquestrar(self, pergunta: str) -> RespostaAgente:
         mensagens = [Mensagem("system", INSTRUCOES_AGENTE), Mensagem("user", pergunta)]
         evidencias: list[Evidencia] = []
+        fontes_consultadas: set[str] = set()
         repeticoes: set[str] = set()
         quantidade_chamadas = 0
         ferramentas = self.ferramentas.descrever()
@@ -135,13 +139,23 @@ class ServicoAgente:
                     "O contexto excedeu o limite seguro. "
                     "Faça uma pergunta mais específica.",
                 )
+            inicio_modelo = perf_counter()
             async with asyncio.timeout(self.configuracao.ollama_timeout):
-                concluir = bool(evidencias) and fontes_necessarias(pergunta).issubset(
-                    {e.dado.fonte for e in evidencias}
-                )
+                faltantes = fontes_necessarias(pergunta) - fontes_consultadas
+                concluir = bool(fontes_consultadas) and not faltantes
+                disponiveis = ferramentas
+                if fontes_consultadas and faltantes:
+                    disponiveis = [
+                        f
+                        for f in ferramentas
+                        if FONTES_FERRAMENTAS.get(f["function"]["name"]) in faltantes
+                    ]
                 turno = await self.modelo.responder(
-                    tuple(mensagens), [] if concluir else ferramentas
+                    tuple(mensagens), [] if concluir else disponiveis
                 )
+            registrar_operacao(
+                "geracao", inicio_modelo, "concluida", quantidade=len(turno.chamadas)
+            )
             if not turno.chamadas:
                 return finalizar_resposta(turno.conteudo, pergunta, evidencias)
             if (
@@ -166,6 +180,9 @@ class ServicoAgente:
                     dados = await self.ferramentas.executar(chamada)
                 if len(dados) > self.configuracao.agente_maximo_resultados:
                     raise ErroFerramenta("resultado_excessivo")
+                fonte = FONTES_FERRAMENTAS.get(chamada.nome)
+                if fonte is not None:
+                    fontes_consultadas.add(fonte)
                 novas = [
                     Evidencia(f"E{len(evidencias) + indice + 1}", dado)
                     for indice, dado in enumerate(dados)
@@ -174,7 +191,17 @@ class ServicoAgente:
                 mensagens.append(
                     Mensagem(
                         "tool",
-                        json.dumps([asdict(e) for e in novas], ensure_ascii=False),
+                        json.dumps(
+                            [
+                                {
+                                    "identificador": e.identificador,
+                                    "fonte": e.dado.fonte,
+                                    "texto": e.dado.texto,
+                                }
+                                for e in novas
+                            ],
+                            ensure_ascii=False,
+                        ),
                         ferramenta=chamada.nome,
                     )
                 )

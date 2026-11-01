@@ -167,6 +167,8 @@ describe('página de atendimento', () => {
     [429, 'ocupado', /Há muitas consultas/],
     [504, 'timeout', /demorou além do limite/],
     [422, 'http', /Confira o conteúdo/],
+    [502, 'resposta_modelo_invalida', /resposta inválida do modelo/],
+    [502, 'geracao_interrompida', /limite de geração/],
   ])('trata erro HTTP %s sem stack trace', async (status, codigo, esperado) => {
     prepararApi(
       async () =>
