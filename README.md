@@ -2,7 +2,7 @@
 
 Fundação técnica de um assistente de atendimento para a loja fictícia Empório da Música, de Campo Grande/MS, no contexto do desafio de AI Engineer da Artefact.
 
-A Fase 1 entrega a fundação web. As Fases 2 e 3 acrescentam SQLite e recuperação de políticas; a Fase 4 implementa o agente local. A Fase 5 acrescenta chat responsivo com temas claro/escuro e integração FastAPI limitada a evidências explicitamente autorizadas. Não há autenticação nem acesso web a clientes ou pedidos. A homologação real do agente está parcial: o atendimento ainda não está pronto para uso real.
+A Fase 1 entrega a fundação web. As Fases 2 e 3 acrescentam SQLite e recuperação de políticas; a Fase 4 implementa o agente local. A Fase 5 acrescenta chat responsivo com temas claro/escuro e integração FastAPI limitada a evidências explicitamente autorizadas. A Fase 6 executa a homologação real e acrescenta regressões e um servidor de demonstração com fontes fictícias. Não há autenticação nem acesso web a clientes ou pedidos. A homologação real do agente está parcial: o atendimento ainda não está pronto para uso real. Consulte o [relatório da Fase 6](docs/relatorios/fase6.md), a [execução local](docs/entrega/execucao-local.md) e a [checklist](docs/entrega/checklist.md).
 
 ## Tecnologias e decisões
 
@@ -225,7 +225,7 @@ backend/.venv/Scripts/python.exe -X utf8 -m emporio_ia.conversar
 
 Para a alternativa menor, altere `EMPORIO_OLLAMA_MODELO` para `qwen3:1.7b`. Digite perguntas no terminal e `/sair` para encerrar. EOF e Ctrl+C também encerram com segurança. Respostas e referências são locais e confidenciais. A CLI não grava transcrições e não mantém histórico entre perguntas; repita nome/identificador quando necessário. A memória de uma pergunta existe apenas durante seu ciclo de ferramentas.
 
-Assim como os demais comandos locais, a CLI lê variáveis do processo, sem carregar `.env` automaticamente. A API de saúde não inicializa o agente nem exige Ollama. Não existe endpoint de atendimento nesta fase.
+Assim como os demais comandos locais, a CLI lê variáveis do processo, sem carregar `.env` automaticamente. A API de saúde não exige Ollama. A Fase 5 acrescentou o endpoint de atendimento controlado; a CLI continua sendo uma interface interna distinta do atendimento visitante.
 
 ### Limites e respostas seguras
 
@@ -243,7 +243,7 @@ Nenhuma política é parafraseada livremente: a saída documental é uma citaç�
 backend/.venv/Scripts/python.exe -m pytest backend/testes/agente
 ```
 
-Os testes usam SQLite e documentos fictícios, LLM simulado e transporte HTTP simulado. Não exigem Ollama e não leem dados privados. Na entrega, o Ollama não foi localizado no PATH nem no diretório padrão e sua API não respondeu. Portanto não há aprovação de inferência real, versão instalada ou latência. Consulte [arquitetura do agente](docs/arquitetura/agente-local.md), [ADR 0004](docs/decisoes/0004-agente-local.md) e [relatório da Fase 4](docs/relatorios/fase4.md).
+A suíte comum usa SQLite/documentos fictícios e modelos/transporte simulados, sem exigir Ollama nem ler dados privados. A ausência do Ollama registrada no relatório da Fase 4 é histórica: na Fase 6 foi encontrada a versão 0.40.13 com qwen3:4b, e a inferência real foi executada, com aprovações e falhas explícitas. A suíte optativa `backend/testes/atendimento/test_ollama_real.py` usa o modelo real com fontes fictícias e pode retornar falha nesta instalação. Consulte a [execução da homologação](docs/entrega/execucao-local.md), a [arquitetura do agente](docs/arquitetura/agente-local.md) e a [ADR 0004](docs/decisoes/0004-agente-local.md).
 
 ## Importação local — Fase 2
 
@@ -330,7 +330,7 @@ A próxima fase deve estabilizar e homologar o modelo local antes da demonstraç
 
 ## Transparência e licença
 
-A implementação das Fases 1 a 5 contou com assistência de código do OpenAI Codex. A revisão e a validação dos requisitos do desafio permanecem sob responsabilidade da pessoa candidata.
+A implementação das Fases 1 a 6 contou com assistência de código do OpenAI Codex. A revisão e a validação dos requisitos do desafio permanecem sob responsabilidade da pessoa candidata.
 
 Nenhuma licença de distribuição foi atribuída sem decisão da titular do projeto. Os dados privados fornecidos para o desafio não são licenciados por este repositório.
 
@@ -362,4 +362,4 @@ Antes de publicar informações, revise localmente as evidências comerciais e a
 
 Digite uma pergunta ou escolha uma sugestão. Enter envia e Shift+Enter quebra a linha. Aguarde, cancele ou tente novamente conforme o estado apresentado. Nova conversa limpa o histórico; recarregar também o descarta. As perguntas são independentes e não enviam mensagens anteriores ao modelo. Apenas o tema é persistido. O navegador não acessa Ollama diretamente.
 
-Os padrões são: 1.000 caracteres, corpo de 8 KiB, 20 mensagens/minuto por IP local, uma consulta simultânea por processo, 120 segundos totais no backend e 130 segundos no frontend. Mantenha um único worker. Não há streaming, uploads ou consulta a pedidos. Aprovação de evidências e homologação real continuam requisitos anteriores ao uso comercial. Testes e verificações completos constam no relatório da fase.
+Os padrões são: 1.000 caracteres, corpo de 8 KiB, 20 requisições/minuto por IP local nas rotas de atendimento (incluindo disponibilidade), uma consulta simultânea por processo, 120 segundos totais no backend e 130 segundos no frontend. Mantenha um único worker. Não há streaming, uploads ou consulta a pedidos. Aprovação de evidências e homologação real continuam requisitos anteriores ao uso comercial. Testes e verificações completos constam no relatório da fase.

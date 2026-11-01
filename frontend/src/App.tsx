@@ -20,6 +20,7 @@ export default function App() {
     if (texto.length > limite) return;
     void conversa.enviar(texto);
     definirTexto('');
+    campo.current?.focus();
   }
   return (
     <div className="aplicacao-atendimento">
@@ -57,6 +58,7 @@ export default function App() {
               onClick={() => {
                 if (conversa.erro)
                   void conversa.enviar(conversa.erro.pergunta, true);
+                campo.current?.focus();
               }}
             >
               Tentar novamente
@@ -67,7 +69,10 @@ export default function App() {
           texto={texto}
           aoDigitar={definirTexto}
           aoEnviar={enviar}
-          aoInterromper={conversa.interromper}
+          aoInterromper={() => {
+            conversa.interromper();
+            campo.current?.focus();
+          }}
           aguardando={conversa.aguardando}
           limite={limite}
           referencia={campo}

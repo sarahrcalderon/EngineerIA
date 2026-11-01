@@ -213,3 +213,72 @@ def test_timeout_libera_vaga(api_publica):
     resposta = cliente.post("/api/atendimento/mensagens", json={"mensagem": "Teste"})
     assert resposta.status_code == 504
     assert app.state.limites_atendimento.ativas == 0
+
+
+def test_peer_externo_recusado_mesmo_com_host_e_origin_locais(api_publica):
+    _, app, _, modelos = api_publica
+
+    async def verificar():
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app, client=("192.0.2.10", 50000)),
+            base_url="http://127.0.0.1:8000",
+        ) as cliente:
+            resposta = await cliente.post(
+                "/api/atendimento/mensagens",
+                headers={
+                    "Origin": "http://127.0.0.1:5173",
+                    "X-Forwarded-For": "127.0.0.1",
+                },
+                json={"mensagem": "Consulta fictícia"},
+            )
+        assert resposta.status_code == 403
+        assert resposta.json()["codigo"] == "origem_recusada"
+
+    asyncio.run(verificar())
+    assert not modelos
+
+
+def test_envio_lento_nao_ocupa_agente(api_publica):
+    _, app, cfg, modelos = api_publica
+    from emporio_ia.api.protecao_atendimento import (
+        LimitesAtendimento,
+        ProtecaoAtendimento,
+    )
+
+    configuracao = cfg.model_copy(update={"atendimento_leitura_timeout": 0.01})
+    enviadas = []
+    entrou = False
+
+    async def destino(scope, receber, enviar):
+        nonlocal entrou
+        entrou = True
+
+    async def receber():
+        await asyncio.sleep(1)
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    async def enviar(mensagem):
+        enviadas.append(mensagem)
+
+    protecao = ProtecaoAtendimento(
+        destino, configuracao, LimitesAtendimento(configuracao)
+    )
+    asyncio.run(
+        protecao(
+            {
+                "type": "http",
+                "path": "/api/atendimento/mensagens",
+                "method": "POST",
+                "client": ("127.0.0.1", 50000),
+                "headers": [
+                    (b"host", b"127.0.0.1"),
+                    (b"content-type", b"application/json"),
+                ],
+            },
+            receber,
+            enviar,
+        )
+    )
+    assert enviadas[0]["status"] == 408
+    assert not entrou and not modelos
+    assert app.state.limites_atendimento.ativas == 0

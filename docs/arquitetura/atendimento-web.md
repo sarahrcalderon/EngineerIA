@@ -31,7 +31,7 @@ O filtro aplica-se antes de enviar resultados ao modelo. A resposta final revali
 
 São permitidos apenas peer de loopback, Host local e Origin explicitamente configurada quando presente. CORS permite GET/POST, sem credenciais. Não use proxy reverso nem exposição em rede: estes controles não implementam autenticação. A aplicação é destinada ao uso local com um processo Uvicorn.
 
-Padrões configuráveis: 8.192 bytes por corpo, 10 segundos para leitura, 20 mensagens por minuto por IP local, uma consulta simultânea por processo, 120 segundos totais no agente, 5 segundos para disponibilidade e 130 segundos no cliente. Resposta HTTP até 16.000 caracteres e 20 referências. `429` inclui `Retry-After`; os erros públicos são estáveis e sanitizados. Cancelamento/desconexão encerra a tarefa assíncrona e libera a vaga; uma leitura SQLite já enviada a uma thread pode terminar normalmente, e a liberação da geração no servidor Ollama depende do fechamento da conexão.
+Padrões configuráveis: 8.192 bytes por corpo, 10 segundos para leitura, 20 requisições por minuto por IP local nas rotas de atendimento (incluindo disponibilidade), uma consulta simultânea por processo, 120 segundos totais no agente, 5 segundos para disponibilidade e 130 segundos no cliente. Resposta HTTP até 16.000 caracteres e 20 referências. `429` inclui `Retry-After`; os erros públicos são estáveis e sanitizados. Cancelamento/desconexão encerra a tarefa assíncrona e libera a vaga; uma leitura SQLite já enviada a uma thread pode terminar normalmente, e a liberação da geração no servidor Ollama depende do fechamento da conexão.
 
 ## Interface e sessão
 

@@ -4,6 +4,8 @@ Atualização da Fase 5: o [atendimento web local](atendimento-web.md) acrescent
 
 ## Objetivos
 
+A Fase 6 acrescenta homologação optativa com Ollama real e servidor de fontes fictícias para reprodução pelo navegador. O [relatório](../relatorios/fase6.md) registra falhas ainda impeditivas de homologação integral; não houve substituição de arquitetura ou modelo.
+
 Estabelecer uma fundação pequena, tipada, testável e local. Separar apresentação, transporte HTTP e configuração sem criar classes ou camadas sem comportamento concreto.
 
 ## Responsabilidades atuais

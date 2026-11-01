@@ -192,6 +192,19 @@ describe('página de atendimento', () => {
     expect(screen.queryByText('detalhe interno')).not.toBeInTheDocument();
   });
 
+  it('mantém foco no campo após envio por botão e erro', async () => {
+    prepararApi(async () => {
+      throw new TypeError('falha sintética');
+    });
+    render(<App />);
+    digitar('Consulta fictícia');
+    const enviar = screen.getByRole('button', { name: 'Enviar pergunta' });
+    enviar.focus();
+    fireEvent.click(enviar);
+    await screen.findByRole('alert');
+    expect(screen.getByRole('textbox')).toHaveFocus();
+  });
+
   it('permite interromper a requisição via AbortController', async () => {
     const consulta = prepararApi(
       (opcoes) =>
